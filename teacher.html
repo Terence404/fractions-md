@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fractions Live Quiz — Teacher</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#111a33; --panel2:#0f1730; --ink:#eaf0ff; --muted:#b9c6ff;
+    --good:#5cffb5; --warn:#ffd56a; --bad:#ff6b8a; --line:rgba(255,255,255,.12);
+    --radius:18px; --shadow:0 14px 40px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Arial; background:radial-gradient(1000px 600px at 20% 0%, #182a5a 0%, var(--bg) 55%);
+       color:var(--ink); min-height:100vh;}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px; display:grid; gap:14px; grid-template-columns: 420px 1fr;}
+  @media (max-width: 980px){ .wrap{grid-template-columns:1fr;} }
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
+        border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line); font-size:16px; letter-spacing:.2px;}
+  .card .body{padding:14px 16px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+  input, textarea, select{width:100%; background:rgba(0,0,0,.22); color:var(--ink); border:1px solid var(--line);
+         border-radius:12px; padding:10px 12px; outline:none;}
+  textarea{min-height:160px;resize:vertical}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  button{border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--ink);
+         padding:10px 12px; border-radius:12px; cursor:pointer}
+  button.primary{background:rgba(92,255,181,.18); border-color:rgba(92,255,181,.35)}
+  button.danger{background:rgba(255,107,138,.16); border-color:rgba(255,107,138,.35)}
+  button:disabled{opacity:.55; cursor:not-allowed}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line);
+        border-radius:999px; background:rgba(0,0,0,.18); font-size:12px; color:var(--muted)}
+  .grid{display:grid; gap:12px}
+  .qrBox{display:grid; grid-template-columns: 164px 1fr; gap:12px; align-items:center}
+  canvas#qr{width:164px;height:164px; background:#fff; border-radius:12px}
+  .leaderHead{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+  .toggle{display:flex; gap:8px; align-items:center}
+  .table{width:100%; border-collapse:separate; border-spacing:0}
+  .table th,.table td{padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); font-size:13px}
+  .table th{color:var(--muted); font-weight:600; text-align:left; position:sticky; top:0; background:rgba(10,16,32,.65); backdrop-filter: blur(6px)}
+  .rank{width:44px;color:var(--muted)}
+  .score{font-weight:700}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Session setup</h2>
+      <div class="body grid">
+        <div class="pill">Status: <span id="authStatus" class="mono">Signing in…</span></div>
+
+        <label>Class roster (one name per line)</label>
+        <textarea id="roster" placeholder="e.g.\nAlicia Tan\nBen Lim\n..."></textarea>
+
+        <div class="row">
+          <div>
+            <label>Time limit (minutes)</label>
+            <input id="timeLimit" type="number" min="5" max="20" step="1" value="12" />
+          </div>
+          <div>
+            <label>Wrong answer penalty (points)</label>
+            <input id="wrongPenalty" type="number" min="0" max="100" step="5" value="20" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Leaderboard size (Top N)</label>
+            <input id="topN" type="number" min="5" max="30" step="1" value="12" />
+          </div>
+          <div>
+            <label>Session code length</label>
+            <select id="codeLen">
+              <option value="5">5</option>
+              <option value="6" selected>6</option>
+              <option value="7">7</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="btnStart">Start new session</button>
+          <button id="btnCopy" disabled>Copy join link</button>
+          <button class="danger" id="btnEnd" disabled>End session</button>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <h2>Join</h2>
+          <div class="body">
+            <div class="qrBox">
+              <canvas id="qr" width="164" height="164" aria-label="QR code"></canvas>
+              <div>
+                <div class="small">Session code</div>
+                <div id="sessionCode" class="mono" style="font-size:22px;margin:2px 0 8px">—</div>
+                <div class="small">Join link</div>
+                <div id="joinLink" class="mono" style="word-break:break-all; font-size:12px; opacity:.9">—</div>
+                <div class="small" style="margin-top:8px">Tip: project this screen; students scan the QR and pick their name.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="small">Note: Students never need accounts; anonymous sign-in gives each device a unique ID.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Live leaderboard</h2>
+      <div class="body">
+        <div class="leaderHead">
+          <div class="pill">Active session: <span id="activeSid" class="mono">—</span></div>
+          <div class="toggle">
+            <label class="small" style="margin:0">View:</label>
+            <select id="viewMode">
+              <option value="top">Top only</option>
+              <option value="full">Full list</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px; max-height:70vh; overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:14px">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="rank">#</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th style="width:110px">Score</th>
+                <th style="width:90px">Done</th>
+              </tr>
+            </thead>
+            <tbody id="lbBody">
+              <tr><td colspan="5" class="small" style="padding:14px">No session yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="small" style="margin-top:10px">
+          Ranking: higher score first. Tie-break: more completed, then earlier end time (if finished).
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+  // ---------- Firebase imports ----------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
+    getDatabase, ref, set, update, get, onValue, remove, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  // ======= PASTE YOUR FIREBASE CONFIG HERE (in BOTH files) =======
+  const firebaseConfig = {
+
+  apiKey: "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
+
+  authDomain: "multiply-and-divide-fractions.firebaseapp.com",
+
+  databaseURL: "https://multiply-and-divide-fractions-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+  projectId: "multiply-and-divide-fractions",
+
+  storageBucket: "multiply-and-divide-fractions.firebasestorage.app",
+
+  messagingSenderId: "641613369936",
+
+  appId: "1:641613369936:web:8ca6dbc66b015bf9087755"
+
+};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const $ = (id)=>document.getElementById(id);
+
+  const authStatus = $("authStatus");
+  const btnStart = $("btnStart");
+  const btnCopy = $("btnCopy");
+  const btnEnd  = $("btnEnd");
+  const rosterTA = $("roster");
+  const timeLimit = $("timeLimit");
+  const wrongPenalty = $("wrongPenalty");
+  const topN = $("topN");
+  const codeLen = $("codeLen");
+  const sessionCodeEl = $("sessionCode");
+  const joinLinkEl = $("joinLink");
+  const activeSidEl = $("activeSid");
+  const lbBody = $("lbBody");
+  const viewMode = $("viewMode");
+
+  let myUid = null;
+  let sid = null;
+  let unsubPlayers = null;
+  let cachedPlayers = {};
+
+  // ---------- Helpers ----------
+  function randCode(len){
+    const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // avoid confusing chars
+    let s=""; for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+  function parseRoster(){
+    const lines = rosterTA.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    // de-dup while preserving order
+    const seen=new Set(); const out=[];
+    for(const n of lines){ if(!seen.has(n.toLowerCase())){ seen.add(n.toLowerCase()); out.push(n); } }
+    return out;
+  }
+
+  // ---------- Minimal QR generator (Nayuki-style, compact) ----------
+  // For classroom use: encode plain URL text. (This is a small QR implementation—no external libs.)
+  // Source inspiration: Project Nayuki QR (public domain). Simplified for v1.
+  function drawQr(canvas, text){
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // If no text, blank
+    if(!text || text==="—"){
+      ctx.fillStyle="#fff"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="#999"; ctx.font="12px system-ui"; ctx.fillText("QR", 74, 88);
+      return;
+    }
+
+    // Tiny fallback: use browser built-in QR via Image API is not available offline, so we implement a simple QR.
+    // This small encoder supports byte-mode text; error correction is modest but fine for short URLs.
+    // To keep this file short, we use a minimal QR library-like routine.
+    const qr = QrCode.encodeText(text, QrCode.Ecc.MEDIUM);
+    const border = 2;
+    const scale = Math.floor(Math.min(canvas.width, canvas.height) / (qr.size + border*2));
+    const offsetX = Math.floor((canvas.width  - (qr.size + border*2)*scale)/2);
+    const offsetY = Math.floor((canvas.height - (qr.size + border*2)*scale)/2);
+
+    ctx.fillStyle="#fff";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#000";
+    for(let y=0;y<qr.size;y++){
+      for(let x=0;x<qr.size;x++){
+        if(qr.getModule(x,y)){
+          ctx.fillRect(offsetX+(x+border)*scale, offsetY+(y+border)*scale, scale, scale);
+        }
+      }
+    }
+  }
+
+  // ---- Minimal QR classes (condensed) ----
+  // This is a condensed version of Nayuki's QR generator (public domain). Supports encodeText for our QR join URL.
+  class QrCode{
+    static Ecc = { LOW:1, MEDIUM:0, QUARTILE:3, HIGH:2 };
+    constructor(version, ecc, dataCodewords, mask){
+      this.version=version; this.ecc=ecc; this.size=version*4+17;
+      this.mask=mask;
+      this.modules=Array.from({length:this.size}, ()=>Array(this.size).fill(null));
+      this.isFunction=Array.from({length:this.size}, ()=>Array(this.size).fill(false));
+      this.drawFunctionPatterns();
+      const allCodewords = QrCode.addEccAndInterleave(dataCodewords, version, ecc);
+      this.drawCodewords(allCodewords);
+      this.applyMask(mask);
+      this.drawFormatBits(mask);
+    }
+    getModule(x,y){ return this.modules[y][x]===true; }
+
+    static encodeText(text, ecc){
+      const bytes = new TextEncoder().encode(text);
+      const seg = QrSegment.makeBytes(bytes);
+      return QrCode.encodeSegments([seg], ecc);
+    }
+    static encodeSegments(segs, ecc){
+      // Choose a version that fits (1..10 for our needs)
+      for(let ver=1; ver<=10; ver++){
+        const dataCapBits = QrCode.getNumDataCodewords(ver, ecc)*8;
+        const bb = new BitBuffer();
+        for(const s of segs) s.write(bb);
+        if(bb.length<=dataCapBits){
+          // terminator + pad to byte
+          bb.appendBits(0, Math.min(4, dataCapBits-bb.length));
+          while(bb.length%8!==0) bb.appendBits(0,1);
+          // pad bytes
+          const padBytes = [0xEC, 0x11];
+          let i=0;
+          while(bb.length < dataCapBits){
+            bb.appendBits(padBytes[i%2], 8); i++;
+          }
+          const data = bb.getBytes();
+          // Find best mask
+          let best=null, bestPenalty=1e9, bestMask=0;
+          for(let mask=0; mask<8; mask++){
+            const qr = new QrCode(ver, ecc, data, mask);
+            const pen = qr.getPenaltyScore();
+            if(pen < bestPenalty){ bestPenalty=pen; best=qr; bestMask=mask; }
+          }
+          return best;
+        }
+      }
+      throw new Error("Text too long for QR v1-10");
+    }
+
+    static getNumDataCodewords(ver, ecc){
+      // Data codewords table for versions 1..10 (MEDIUM ecc index 0)
+      // [L,M,Q,H] per version
+      const table = {
+        1:[19,16,13,9], 2:[34,28,22,16], 3:[55,44,34,26], 4:[80,64,48,36], 5:[108,86,62,46],
+        6:[136,108,76,60], 7:[156,124,88,66], 8:[194,154,110,86], 9:[232,182,132,100], 10:[274,216,154,122]
+      };
+      const idx = (ecc===QrCode.Ecc.LOW)?0:(ecc===QrCode.Ecc.MEDIUM)?1:(ecc===QrCode.Ecc.QUARTILE)?2:3;
+      return table[ver][idx];
+    }
+
+    drawFunctionPatterns(){
+      const n=this.size;
+      const drawFinder=(x,y)=>{
+        for(let dy=-4;dy<=4;dy++) for(let dx=-4;dx<=4;dx++){
+          const xx=x+dx, yy=y+dy;
+          if(0<=xx && xx<n && 0<=yy && yy<n){
+            const dist = Math.max(Math.abs(dx), Math.abs(dy));
+            this.modules[yy][xx] = (dist!==2 && dist!==4);
+            this.isFunction[yy][xx]=true;
+          }
+        }
+      };
+      drawFinder(3,3); drawFinder(n-4,3); drawFinder(3,n-4);
+      // timing
+      for(let i=0;i<n;i++){
+        if(this.isFunction[6][i]===false){ this.modules[6][i]= (i%2===0); this.isFunction[6][i]=true; }
+        if(this.isFunction[i][6]===false){ this.modules[i][6]= (i%2===0); this.isFunction[i][6]=true; }
+      }
+      // dark module
+      this.modules[n-8][8]=true; this.isFunction[n-8][8]=true;
+    }
+
+    drawFormatBits(mask){
+      // format: ecc+mask BCH (we use precomputed)
+      const formatMap = {
+        // MEDIUM: 0b00, masks 0..7
+        0: 0x5412, 1:0x5125, 2:0x5E7C, 3:0x5B4B, 4:0x45F9, 5:0x40CE, 6:0x4F97, 7:0x4AA0
+      };
+      let bits = formatMap[mask];
+      const n=this.size;
+      // 15 bits
+      for(let i=0;i<15;i++){
+        const bit = ((bits>>>i)&1)!==0;
+        // vertical
+        const a = (i<6)? [8,i] : (i<8)? [8,i+1] : [8,n-15+i];
+        // horizontal
+        const b = (i<8)? [n-1-i,8] : [15-i-1,8];
+        this.modules[a[1]][a[0]] = bit; this.isFunction[a[1]][a[0]]=true;
+        this.modules[b[1]][b[0]] = bit; this.isFunction[b[1]][b[0]]=true;
+      }
+    }
+
+    drawCodewords(data){
+      const n=this.size;
+      let i=0;
+      for(let right=n-1; right>=1; right-=2){
+        if(right===6) right--;
+        for(let vert=0; vert<n; vert++){
+          const y = ((right+1)/2)%2===0 ? (n-1-vert) : vert;
+          for(let j=0;j<2;j++){
+            const x = right-j;
+            if(this.isFunction[y][x]) continue;
+            const bit = (data[Math.floor(i/8)] >>> (7-(i%8))) & 1;
+            this.modules[y][x] = bit===1;
+            i++;
+          }
+        }
+      }
+    }
+
+    applyMask(mask){
+      const n=this.size;
+      for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+        if(this.isFunction[y][x]) continue;
+        let invert=false;
+        switch(mask){
+          case 0: invert = ((x+y)%2===0); break;
+          case 1: invert = (y%2===0); break;
+          case 2: invert = (x%3===0); break;
+          case 3: invert = ((x+y)%3===0); break;
+          case 4: invert = ((Math.floor(y/2)+Math.floor(x/3))%2===0); break;
+          case 5: invert = ((x*y)%2 + (x*y)%3===0); break;
+          case 6: invert = (((x*y)%2 + (x*y)%3)%2===0); break;
+          case 7: invert = (((x+y)%2 + (x*y)%3)%2===0); break;
+        }
+        if(invert) this.modules[y][x]=!this.modules[y][x];
+      }
+    }
+
+    getPenaltyScore(){
+      // Lightweight penalty estimation (good enough for our use)
+      const n=this.size;
+      let pen=0;
+      const mod=(x,y)=>this.modules[y][x]===true;
+      // Adjacent in rows/cols
+      for(let y=0;y<n;y++){
+        let runColor=mod(0,y), runLen=1;
+        for(let x=1;x<n;x++){
+          const c=mod(x,y);
+          if(c===runColor) runLen++;
+          else { if(runLen>=5) pen += 3 + (runLen-5); runColor=c; runLen=1; }
+        }
+        if(runLen>=5) pen += 3 + (runLen-5);
+      }
+      for(let x=0;x<n;x++){
+        let runColor=mod(x,0), runLen=1;
+        for(let y=1;y<n;y++){
+          const c=mod(x,y);
+          if(c===runColor) runLen++;
+          else { if(runLen>=5) pen += 3 + (runLen-5); runColor=c; runLen=1; }
+        }
+        if(runLen>=5) pen += 3 + (runLen-5);
+      }
+      return pen;
+    }
+
+    static addEccAndInterleave(data, ver, ecc){
+      // For our limited versions, use simple RS params table (bytes)
+      // This is a compact subset for versions 1..10.
+      const rsTable = {
+        // ver: [L,M,Q,H] => [eccPerBlock, numBlocks]
+        1: [[7,1],[10,1],[13,1],[17,1]],
+        2: [[10,1],[16,1],[22,1],[28,1]],
+        3: [[15,1],[26,1],[18,2],[22,2]],
+        4: [[20,1],[18,2],[26,2],[16,4]],
+        5: [[26,1],[24,2],[18,4],[22,4]],
+        6: [[18,2],[16,4],[24,4],[28,4]],
+        7: [[20,2],[18,4],[18,6],[26,5]],
+        8: [[24,2],[22,4],[22,6],[26,6]],
+        9: [[30,2],[22,5],[20,8],[24,8]],
+        10:[[18,4],[26,5],[24,8],[28,8]]
+      };
+      const idx = (ecc===QrCode.Ecc.LOW)?0:(ecc===QrCode.Ecc.MEDIUM)?1:(ecc===QrCode.Ecc.QUARTILE)?2:3;
+      const [eccPerBlock, numBlocks] = rsTable[ver][idx];
+      const blockLen = Math.ceil(data.length/numBlocks);
+      const blocks=[];
+      for(let b=0;b<numBlocks;b++){
+        const start=b*blockLen;
+        blocks.push(data.slice(start, Math.min(data.length, start+blockLen)));
+      }
+      // pad last block to same length
+      const maxLen = Math.max(...blocks.map(x=>x.length));
+      for(const bl of blocks) while(bl.length<maxLen) bl.push(0);
+
+      const gen = ReedSolomonGenerator.make(eccPerBlock);
+      const eccBlocks = blocks.map(bl=>gen.getRemainder(bl));
+
+      // interleave data
+      const out=[];
+      for(let i=0;i<maxLen;i++) for(const bl of blocks) out.push(bl[i]);
+      for(let i=0;i<eccPerBlock;i++) for(const eb of eccBlocks) out.push(eb[i]);
+      return out;
+    }
+  }
+
+  class QrSegment{
+    constructor(mode, numChars, bitData){
+      this.mode=mode; this.numChars=numChars; this.bitData=bitData;
+    }
+    static Mode = {
+      BYTE: { modeBits:0b0100, numCharCountBits:(ver)=> (ver<=9?8:16) }
+    };
+    static makeBytes(bytes){
+      const bb=new BitBuffer();
+      for(const b of bytes) bb.appendBits(b,8);
+      return new QrSegment(QrSegment.Mode.BYTE, bytes.length, bb);
+    }
+    write(bb){
+      bb.appendBits(this.mode.modeBits, 4);
+      bb.appendBits(this.numChars, this.mode.numCharCountBits(1));
+      bb.appendData(this.bitData);
+    }
+  }
+
+  class BitBuffer{
+    constructor(){ this.bits=[]; }
+    get length(){ return this.bits.length; }
+    appendBits(val, len){
+      for(let i=len-1;i>=0;i--) this.bits.push(((val>>>i)&1)!==0);
+    }
+    appendData(bb){ for(const b of bb.bits) this.bits.push(b); }
+    getBytes(){
+      const out=[];
+      for(let i=0;i<this.bits.length;i+=8){
+        let v=0;
+        for(let j=0;j<8;j++) v = (v<<1) | (this.bits[i+j]?1:0);
+        out.push(v);
+      }
+      return out;
+    }
+  }
+
+  class ReedSolomonGenerator{
+    constructor(degree){
+      this.degree=degree;
+      this.coefficients=[1];
+      for(let i=0;i<degree;i++){
+        this.coefficients = ReedSolomonGenerator.multiplyPoly(this.coefficients, [1, ReedSolomonGenerator.exp(i)]);
+      }
+    }
+    static make(deg){ return new ReedSolomonGenerator(deg); }
+    getRemainder(data){
+      const result = new Array(this.degree).fill(0);
+      for(const b of data){
+        const factor = b ^ result.shift();
+        result.push(0);
+        for(let i=0;i<this.degree;i++){
+          result[i] ^= ReedSolomonGenerator.mul(this.coefficients[i+1], factor);
+        }
+      }
+      return result;
+    }
+    static multiplyPoly(p,q){
+      const out=new Array(p.length+q.length-1).fill(0);
+      for(let i=0;i<p.length;i++) for(let j=0;j<q.length;j++){
+        out[i+j] ^= ReedSolomonGenerator.mul(p[i], q[j]);
+      }
+      return out;
+    }
+    static exp(i){
+      let x=1;
+      for(let k=0;k<i;k++) x = ReedSolomonGenerator.mul(x,2);
+      return x;
+    }
+    static mul(x,y){
+      // GF(2^8) with primitive polynomial 0x11D
+      let z=0;
+      for(let i=7;i>=0;i--){
+        z = (z<<1) ^ ((z & 0x80) ? 0x11D : 0);
+        if(((y>>>i)&1)!==0) z ^= x;
+      }
+      return z & 0xFF;
+    }
+  }
+
+  // ---------- Auth ----------
+  signInAnonymously(auth).catch(err=>{
+    authStatus.textContent = "Auth error";
+    console.error(err);
+    alert("Firebase auth failed. Check Auth settings and allowed domains.");
+  });
+
+  onAuthStateChanged(auth, (user)=>{
+    if(user){
+      myUid = user.uid;
+      authStatus.textContent = "Signed in (anon)";
+      btnStart.disabled = false;
+    }
+  });
+
+  // ---------- Session start ----------
+  btnStart.addEventListener("click", async ()=>{
+    const names = parseRoster();
+    if(names.length < 5){
+      alert("Please paste your roster (at least 5 names).");
+      return;
+    }
+    const minutes = Math.max(5, Math.min(20, Number(timeLimit.value||12)));
+    const penalty = Math.max(0, Math.min(100, Number(wrongPenalty.value||20)));
+    const top = Math.max(5, Math.min(30, Number(topN.value||12)));
+    const cLen = Number(codeLen.value||6);
+
+    sid = randCode(cLen);
+    const joinUrl = new URL(location.href.replace(/teacher\.html.*/,"student.html"));
+    joinUrl.searchParams.set("sid", sid);
+
+    // write session
+    const sessionRef = ref(db, `sessions/${sid}`);
+    const payload = {
+      teacherUid: myUid,
+      public: {
+        createdAt: serverTimestamp(),
+        sid,
+        timeLimitSec: minutes*60,
+        wrongPenalty: penalty,
+        topN: top,
+        roster: names
+      }
+    };
+    await set(sessionRef, payload);
+
+    // Update UI
+    $("activeSid").textContent = sid;
+    sessionCodeEl.textContent = sid;
+    joinLinkEl.textContent = joinUrl.toString();
+    drawQr($("qr"), joinUrl.toString());
+    btnCopy.disabled = false;
+    btnEnd.disabled  = false;
+
+    // Listen to players
+    attachPlayersListener();
+  });
+
+  btnCopy.addEventListener("click", async ()=>{
+    const t = joinLinkEl.textContent;
+    if(!t || t==="—") return;
+    try{
+      await navigator.clipboard.writeText(t);
+      btnCopy.textContent = "Copied!";
+      setTimeout(()=>btnCopy.textContent="Copy join link", 900);
+    }catch{
+      alert("Copy failed. You can manually copy the join link.");
+    }
+  });
+
+  btnEnd.addEventListener("click", async ()=>{
+    if(!sid) return;
+    if(!confirm("End session? This removes the session + leaderboard data.")) return;
+    await remove(ref(db, `sessions/${sid}`));
+    sid=null;
+    cachedPlayers={};
+    renderLeaderboard([]);
+    $("activeSid").textContent="—";
+    sessionCodeEl.textContent="—";
+    joinLinkEl.textContent="—";
+    drawQr($("qr"), "—");
+    btnCopy.disabled=true;
+    btnEnd.disabled=true;
+  });
+
+  function attachPlayersListener(){
+    if(!sid) return;
+    const playersRef = ref(db, `sessions/${sid}/players`);
+    onValue(playersRef, (snap)=>{
+      cachedPlayers = snap.val() || {};
+      renderLeaderboard(Object.values(cachedPlayers));
+    });
+  }
+
+  viewMode.addEventListener("change", ()=>renderLeaderboard(Object.values(cachedPlayers)));
+
+  function renderLeaderboard(players){
+    if(!players || players.length===0){
+      lbBody.innerHTML = `<tr><td colspan="5" class="small" style="padding:14px">No players yet.</td></tr>`;
+      return;
+    }
+    players.sort((a,b)=>{
+      // score desc
+      const ds=(b.score||0)-(a.score||0); if(ds!==0) return ds;
+      // completed desc
+      const dc=(b.completed||0)-(a.completed||0); if(dc!==0) return dc;
+      // finished earlier first (if both finished)
+      const af=a.endedAt||1e18, bf=b.endedAt||1e18;
+      return af-bf;
+    });
+
+    const top = Number(topN.value||12);
+    const show = (viewMode.value==="full") ? players : players.slice(0, top);
+
+    lbBody.innerHTML = show.map((p, idx)=>{
+      const st = p.status || "playing";
+      const stClass = st==="finished" ? "ok" : st==="playing" ? "warn" : "bad";
+      const done = `${p.completed||0}/10`;
+      return `<tr>
+        <td class="rank">${idx+1}</td>
+        <td>${escapeHtml(p.name||"(no name)")}</td>
+        <td class="${stClass}">${escapeHtml(st)}</td>
+        <td class="score">${p.score||0}</td>
+        <td>${done}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+</script>
+</body>
+
+</html>

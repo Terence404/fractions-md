@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fractions Live Quiz — Student</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#111a33; --panel2:#0f1730; --ink:#eaf0ff; --muted:#b9c6ff;
+    --good:#5cffb5; --warn:#ffd56a; --bad:#ff6b8a; --line:rgba(255,255,255,.12);
+    --radius:18px; --shadow:0 14px 40px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Arial; background:radial-gradient(1000px 600px at 15% 0%, #182a5a 0%, var(--bg) 55%);
+       color:var(--ink); min-height:100vh;}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px; display:grid; gap:12px}
+  .topbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+          padding:10px 12px; border:1px solid var(--line); border-radius:16px; background:rgba(0,0,0,.18)}
+  .left, .right{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .big{font-size:18px; font-weight:800}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line);
+        border-radius:999px; background:rgba(0,0,0,.18); font-size:12px; color:var(--muted)}
+  .pill strong{color:var(--ink)}
+  .grid{display:grid; gap:12px}
+  .panel{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
+        border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
+  .panel h2{margin:0;padding:12px 14px;border-bottom:1px solid var(--line); font-size:15px}
+  .panel .body{padding:12px 14px}
+  .layout{display:grid; gap:12px}
+  /* Landscape: 3 columns; Portrait: stacked */
+  @media (min-width: 900px){
+    .layout{grid-template-columns: 1.2fr 1fr 0.9fr; align-items:stretch}
+  }
+  .questionBox{display:flex; flex-direction:column; gap:10px}
+  .qText{font-size:22px; font-weight:800; letter-spacing:.2px}
+  .sub{color:var(--muted); font-size:12px}
+
+  /* Stacked fraction display */
+  .frac{display:inline-grid; grid-template-rows:auto 2px auto; align-items:center; justify-items:center;
+        vertical-align:middle; margin:0 2px; line-height:1}
+  .frac .top{padding:0 6px}
+  .frac .bar{width:100%; height:2px; background:rgba(234,240,255,.85)}
+  .frac .bot{padding:0 6px}
+
+  .op{display:inline-block; margin:0 8px; font-weight:900}
+  .qLine{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+
+  /* Answer */
+  .answerRow{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end}
+  .field{display:flex; flex-direction:column; gap:6px}
+  .field label{font-size:12px; color:var(--muted)}
+  .box{min-width:88px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:rgba(0,0,0,.22);
+       font-size:18px; font-weight:800; text-align:center}
+  .box.active{outline:2px solid rgba(92,255,181,.55)}
+  .mini{font-size:12px; color:var(--muted)}
+  .btnRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+  button{border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--ink);
+         padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:700}
+  button.primary{background:rgba(92,255,181,.18); border-color:rgba(92,255,181,.35)}
+  button:disabled{opacity:.55; cursor:not-allowed}
+  .msg{min-height:20px; font-size:13px}
+  .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+
+  /* Keypad */
+  .keypad{display:grid; grid-template-columns: repeat(3, 1fr); gap:10px}
+  .keypad button{padding:14px 10px; font-size:18px; border-radius:16px}
+  .keypad button.wide{grid-column: span 2}
+  .keypad button.alt{background:rgba(255,213,106,.14); border-color:rgba(255,213,106,.32)}
+  .keypad button.danger{background:rgba(255,107,138,.14); border-color:rgba(255,107,138,.32)}
+
+  /* Scratchpad */
+  .padWrap{display:flex; flex-direction:column; gap:10px; height:100%}
+  canvas#pad{width:100%; height:100%; min-height:260px; background:rgba(255,255,255,.06);
+             border:1px dashed rgba(255,255,255,.18); border-radius:16px; touch-action:none}
+  .padTools{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .padTools input[type="range"]{width:140px}
+  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:14px;
+         background:rgba(0,0,0,.55); backdrop-filter: blur(6px)}
+  .modal .box2{max-width:720px; width:100%; background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));
+               border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); overflow:hidden}
+  .modal h3{margin:0; padding:12px 14px; border-bottom:1px solid var(--line)}
+  .modal .content{padding:12px 14px}
+  select{width:100%; background:rgba(0,0,0,.22); color:var(--ink); border:1px solid var(--line);
+         border-radius:12px; padding:10px 12px; outline:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="left">
+      <div class="pill"><strong>Time left</strong> <span id="roundLeft" class="big">—</span></div>
+      <div class="pill"><strong>Q</strong> <span id="qIndex">—</span>/10</div>
+      <div class="pill"><strong>This Q</strong> <span id="qTime">00:00</span></div>
+    </div>
+    <div class="right">
+      <div class="pill"><strong>Score</strong> <span id="score" class="big">0</span></div>
+      <div class="pill"><strong>Status</strong> <span id="statusText">Joining…</span></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Question</h2>
+      <div class="body questionBox">
+        <div id="qRender" class="qText">—</div>
+        <div id="qReq" class="sub">—</div>
+
+        <div class="answerRow">
+          <div class="field">
+            <label>Whole</label>
+            <div id="inWhole" class="box"> </div>
+          </div>
+
+          <div class="field">
+            <label>Numerator</label>
+            <div id="inNum" class="box"> </div>
+          </div>
+
+          <div class="field">
+            <label>Denominator</label>
+            <div id="inDen" class="box"> </div>
+          </div>
+
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="primary" id="btnSubmit" disabled>Submit</button>
+          </div>
+        </div>
+
+        <div class="btnRow">
+          <button id="btnStart" class="primary" disabled>Start</button>
+          <button id="btnClear" class="alt">Clear</button>
+          <button id="btnHelp">Rules</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Scratchpad (optional)</h2>
+      <div class="body padWrap">
+        <div class="padTools">
+          <button id="penBtn" class="primary">Pen</button>
+          <button id="eraserBtn">Eraser</button>
+          <button id="padClear" class="danger">Clear pad</button>
+          <span class="pill">Thickness <input id="thick" type="range" min="2" max="12" value="5" /></span>
+        </div>
+        <canvas id="pad"></canvas>
+        <div class="mini">Use finger/stylus/mouse. This is not graded.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Keypad</h2>
+      <div class="body">
+        <div class="keypad" id="keys"></div>
+        <div class="mini" style="margin-top:10px">Tap a box (Whole / Numerator / Denominator), then use the keypad.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Join modal -->
+<div class="modal" id="joinModal" style="display:flex">
+  <div class="box2">
+    <h3>Join session</h3>
+    <div class="content">
+      <div class="pill">Session: <strong id="sidLabel">—</strong></div>
+      <p class="mini">Select your name. Please choose your own name only.</p>
+      <select id="nameSelect"></select>
+      <div class="btnRow" style="margin-top:12px">
+        <button id="joinBtn" class="primary">Join</button>
+      </div>
+      <div class="mini" id="joinHint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Rules modal -->
+<div class="modal" id="helpModal">
+  <div class="box2">
+    <h3>Rules</h3>
+    <div class="content">
+      <ul class="mini" style="line-height:1.4">
+        <li>Answer each question with the keypad.</li>
+        <li><b>Simplest form only</b>: equivalent fractions are marked wrong.</li>
+        <li>Some answers must be written as a <b>mixed number</b>. Improper fraction is not accepted.</li>
+        <li>Score rewards speed on correct answers. Wrong answers give 0 for that question and a penalty.</li>
+        <li>If time runs out, unfinished questions are <b>unattempted</b> (no extra penalty).</li>
+      </ul>
+      <div class="btnRow"><button id="closeHelp" class="primary">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
+    getDatabase, ref, get, set, update, onValue, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  // ======= PASTE YOUR FIREBASE CONFIG HERE =======
+  const firebaseConfig = {
+
+  apiKey: "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
+
+  authDomain: "multiply-and-divide-fractions.firebaseapp.com",
+
+  databaseURL: "https://multiply-and-divide-fractions-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+  projectId: "multiply-and-divide-fractions",
+
+  storageBucket: "multiply-and-divide-fractions.firebasestorage.app",
+
+  messagingSenderId: "641613369936",
+
+  appId: "1:641613369936:web:8ca6dbc66b015bf9087755"
+
+};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const $ = (id)=>document.getElementById(id);
+
+  const sid = new URLSearchParams(location.search).get("sid") || "";
+  $("sidLabel").textContent = sid || "(missing sid)";
+  const statusText = $("statusText");
+
+  const joinModal = $("joinModal");
+  const helpModal = $("helpModal");
+  const nameSelect = $("nameSelect");
+  const joinBtn = $("joinBtn");
+  const joinHint = $("joinHint");
+
+  const roundLeftEl = $("roundLeft");
+  const qIndexEl = $("qIndex");
+  const qTimeEl = $("qTime");
+  const scoreEl = $("score");
+  const qRender = $("qRender");
+  const qReq = $("qReq");
+  const msgEl = $("msg");
+
+  const inWhole = $("inWhole"), inNum = $("inNum"), inDen = $("inDen");
+  const btnStart = $("btnStart");
+  const btnSubmit = $("btnSubmit");
+  const btnClear = $("btnClear");
+
+  const btnHelp = $("btnHelp");
+  const closeHelp = $("closeHelp");
+
+  // Scratchpad
+  const pad = $("pad");
+  const penBtn = $("penBtn");
+  const eraserBtn = $("eraserBtn");
+  const padClear = $("padClear");
+  const thick = $("thick");
+
+  // ---------- State ----------
+  let uid = null;
+  let session = null;        // public session info
+  let myName = null;
+  let started = false;
+
+  let roundEndsAt = 0;
+  let qStartedAt = 0;
+  let ticker = null;
+
+  let score = 0;
+  let completed = 0;
+  let correct = 0;
+
+  let wrongPenalty = 20;
+
+  // Blueprint slots
+  const slots = [
+    "FxF","FxF",
+    "WxF","WxF",
+    "FdivW","FdivW",
+    "FdivF","FdivF",
+    "WdivF","WdivF"
+  ];
+  let questions = []; // generated per run
+  let current = null;
+
+  // Requirements: 5 simplify-required, 3 mixed-required
+  // We'll pick: one from each type for simplify (5 total),
+  // and mixed: WxF, WdivF, FdivF (3 total)
+  const simplifyPlan = { FxF:1, WxF:1, FdivW:1, FdivF:1, WdivF:1 };
+  const mixedPlan = { WxF:1, WdivF:1, FdivF:1 };
+
+  // Input focus: "whole" | "num" | "den"
+  let focus = "num";
+
+  // ---------- Math helpers ----------
+  function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ const t=a%b; a=b; b=t; } return a||1; }
+  function lcm(a,b){ return Math.abs(a/gcd(a,b)*b); }
+  function reduce(n,d){
+    const g=gcd(n,d); n/=g; d/=g;
+    if(d<0){ n=-n; d=-d; }
+    return {n,d};
+  }
+  function fracMul(A,B){ return reduce(A.n*B.n, A.d*B.d); }
+  function fracDiv(A,B){ return reduce(A.n*B.d, A.d*B.n); }
+  function fracFromInt(w){ return {n:w, d:1}; }
+  function isInt(F){ return F.d===1; }
+  function toMixed(F){
+    const r = reduce(F.n,F.d);
+    const whole = Math.trunc(r.n / r.d);
+    const rem = Math.abs(r.n % r.d);
+    return { whole, remN: rem, remD: r.d };
+  }
+  function isSimplest(n,d){ return gcd(n,d)===1; }
+
+  // ---------- Fraction rendering ----------
+  function fracSpan(n,d){
+    return `<span class="frac"><span class="top">${n}</span><span class="bar"></span><span class="bot">${d}</span></span>`;
+  }
+  function exprToHtml(expr){
+    // expr: {a:{n,d}, op:"×"|"÷", b:{n,d}, wholeA?:boolean, wholeB?:boolean}
+    const A = expr.a.d===1 ? `${expr.a.n}` : fracSpan(expr.a.n, expr.a.d);
+    const B = expr.b.d===1 ? `${expr.b.n}` : fracSpan(expr.b.n, expr.b.d);
+    return `<span class="qLine">${A}<span class="op">${expr.op}</span>${B}</span>`;
+  }
+
+  // ---------- Generation constraints (above average) ----------
+  const DEN_SET = [4,5,6,8,9,10,12]; // main
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function randInt(min,max){ return min + Math.floor(Math.random()*(max-min+1)); }
+
+  function makeProperFrac(){
+    const d = pick(DEN_SET);
+    // prefer 2..d-1, avoid too many 1/d
+    let n = randInt(2, d-1);
+    if(n===d) n=d-1;
+    // ensure proper
+    if(n>=d) n=d-1;
+    // reduce to simplest form (we can allow non-simplest only if we purposely want? We want proper simplest by default.)
+    const r = reduce(n,d);
+    return { n:r.n, d:r.d };
+  }
+
+  function needsSimplify_mul(A,B){
+    return gcd(A.n,B.d)>1 || gcd(B.n,A.d)>1;
+  }
+  function needsSimplify_intMul(W,F){
+    return gcd(W, F.d)>1;
+  }
+  function needsSimplify_fDivW(F,W){
+    return gcd(F.n, W)>1;
+  }
+  function needsSimplify_fDivF(A,B){ // A ÷ B -> A * (B.d/B.n)
+    return gcd(A.n, B.n)>1 || gcd(B.d, A.d)>1;
+  }
+  function needsSimplify_wDivF(W,F){ // W ÷ F -> W * (F.d/F.n)
+    return gcd(W, F.n)>1;
+  }
+
+  function willBeMixed_wMulF(W,F){
+    const num = W*F.n, den=F.d;
+    return num>den && num%den!==0;
+  }
+  function willBeMixed_wDivF(W,F){
+    const num = W*F.d, den=F.n;
+    return num>den && num%den!==0;
+  }
+  function willBeMixed_fDivF(A,B){
+    const num = A.n*B.d, den=A.d*B.n;
+    const r = reduce(num,den);
+    return Math.abs(r.n)>r.d && (Math.abs(r.n)%r.d)!==0;
+  }
+
+  function capAnswer(F){
+    const r=reduce(F.n,F.d);
+    return Math.abs(r.n)<=144 && r.d<=72;
+  }
+
+  function genQuestion(type, mustSimplify, mustMixed){
+    // Retry loop to satisfy constraints
+    for(let tries=0; tries<4000; tries++){
+      let A,B,W, expr, ans;
+      if(type==="FxF"){
+        A=makeProperFrac(); B=makeProperFrac();
+        ans = fracMul(A,B);
+        if(mustMixed) continue; // impossible if both proper
+        if(mustSimplify && !needsSimplify_mul(A,B)) continue;
+        if(!mustSimplify && needsSimplify_mul(A,B)) continue;
+        if(!capAnswer(ans)) continue;
+        expr = {a:A, op:"×", b:B};
+        return pack(type, expr, ans, mustSimplify, false);
+      }
+      if(type==="WxF"){
+        W = randInt(4,18);
+        B = makeProperFrac();
+        ans = fracMul(fracFromInt(W), B);
+        const mixed = willBeMixed_wMulF(W,B);
+        if(mustMixed && !mixed) continue;
+        if(!mustMixed && mixed) {
+          // ok to be non-mixed if we don't demand mixed; but you want exactly 3 mixed total;
+          // we'll control that at blueprint level, so here we just respect mustMixed.
+        }
+        if(mustSimplify && !needsSimplify_intMul(W,B)) continue;
+        if(!mustSimplify && needsSimplify_intMul(W,B)) continue;
+        if(!capAnswer(ans)) continue;
+        expr = {a:fracFromInt(W), op:"×", b:B};
+        return pack(type, expr, ans, mustSimplify, mixed);
+      }
+      if(type==="FdivW"){
+        A=makeProperFrac();
+        W=randInt(4,18);
+        ans = fracDiv(A, fracFromInt(W));
+        if(mustMixed) continue; // proper ÷ whole < 1
+        if(mustSimplify && !needsSimplify_fDivW(A,W)) continue;
+        if(!mustSimplify && needsSimplify_fDivW(A,W)) continue;
+        if(!capAnswer(ans)) continue;
+        expr = {a:A, op:"÷", b:fracFromInt(W)};
+        return pack(type, expr, ans, mustSimplify, false);
+      }
+      if(type==="FdivF"){
+        A=makeProperFrac(); B=makeProperFrac();
+        ans = fracDiv(A,B);
+        const mixed = willBeMixed_fDivF(A,B);
+        if(mustMixed && !mixed) continue;
+        if(mustSimplify && !needsSimplify_fDivF(A,B)) continue;
+        if(!mustSimplify && needsSimplify_fDivF(A,B)) continue;
+        if(!capAnswer(ans)) continue;
+        expr = {a:A, op:"÷", b:B};
+        return pack(type, expr, ans, mustSimplify, mixed);
+      }
+      if(type==="WdivF"){
+        W=randInt(4,18);
+        B=makeProperFrac();
+        ans = fracDiv(fracFromInt(W), B);
+        const mixed = willBeMixed_wDivF(W,B);
+        if(mustMixed && !mixed) continue;
+        if(mustSimplify && !needsSimplify_wDivF(W,B)) continue;
+        if(!mustSimplify && needsSimplify_wDivF(W,B)) continue;
+        if(!capAnswer(ans)) continue;
+        expr = {a:fracFromInt(W), op:"÷", b:B};
+        return pack(type, expr, ans, mustSimplify, mixed);
+      }
+    }
+    throw new Error("Generation failed for "+type);
+  }
+
+  function pack(type, expr, ans, mustSimplify, isMixed){
+    const reduced = reduce(ans.n, ans.d);
+    const mixed = toMixed(reduced);
+    // Determine whether this question SHOULD be answered as mixed number (strict)
+    const requiresMixed = isMixed; // only the 3 planned ones should end up here
+    return {
+      type, expr, ans: reduced,
+      requiresSimplest: true,
+      requiresMixed,
+      mustSimplify
+    };
+  }
+
+  function buildBlueprint(){
+    // Decide which specific slot indices are simplify-required/mixed-required
+    const simplifySlots = new Set();
+    const mixedSlots = new Set();
+
+    function pickK(type, k, candidates){
+      // pick k indices from candidates
+      const pool = candidates.slice();
+      for(let i=0;i<k;i++){
+        const idx = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+        if(idx!==undefined) yieldIdx.push(idx);
+      }
+    }
+
+    // Indices by type
+    const idxByType = {};
+    slots.forEach((t,i)=>{ (idxByType[t] ||= []).push(i); });
+
+    // Pick simplify-required: 1 from each type
+    for(const t of Object.keys(simplifyPlan)){
+      const list = (idxByType[t]||[]).slice();
+      const chosen = list[Math.floor(Math.random()*list.length)];
+      simplifySlots.add(chosen);
+    }
+
+    // Pick mixed-required: 1 from each target type (WxF, WdivF, FdivF)
+    for(const t of Object.keys(mixedPlan)){
+      const list = (idxByType[t]||[]).slice();
+      const chosen = list[Math.floor(Math.random()*list.length)];
+      mixedSlots.add(chosen);
+    }
+
+    // Generate questions with those flags
+    const qs = [];
+    for(let i=0;i<slots.length;i++){
+      const type = slots[i];
+      const mustSimplify = simplifySlots.has(i);
+      const mustMixed = mixedSlots.has(i);
+      qs.push(genQuestion(type, mustSimplify, mustMixed));
+    }
+
+    // Randomise order for presentation, but keep exactly 10
+    // (This preserves the planned counts.)
+    for(let i=qs.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [qs[i],qs[j]]=[qs[j],qs[i]];
+    }
+    return qs;
+  }
+
+  // ---------- Scoring ----------
+  function pointsForCorrect(seconds){
+    // Smooth: 0s -> 120, 10s -> 100, 40s -> 40, floor at 40
+    const pts = Math.max(40, Math.round(120 - 2*seconds));
+    return pts;
+  }
+
+  function fmtTime(sec){
+    sec = Math.max(0, Math.floor(sec));
+    const m = Math.floor(sec/60);
+    const s = sec%60;
+    return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  }
+
+  // ---------- Input UI ----------
+  function setFocus(which){
+    focus=which;
+    inWhole.classList.toggle("active", focus==="whole");
+    inNum.classList.toggle("active", focus==="num");
+    inDen.classList.toggle("active", focus==="den");
+  }
+  function getBox(which){ return which==="whole"?inWhole:which==="num"?inNum:inDen; }
+  function boxValue(which){
+    const t = getBox(which).textContent.trim();
+    return t===""? "" : t;
+  }
+  function setBox(which, val){
+    getBox(which).textContent = val==="" ? " " : String(val);
+    validateReady();
+  }
+  function appendDigit(d){
+    const cur = boxValue(focus);
+    const next = (cur===" "||cur==="") ? String(d) : (cur + String(d));
+    // basic clamp length
+    if(next.length>3) return;
+    setBox(focus, next);
+  }
+  function backspace(){
+    const cur = boxValue(focus);
+    if(!cur) { setBox(focus,""); return; }
+    const next = cur.slice(0,-1);
+    setBox(focus, next);
+  }
+  function clearAll(){
+    setBox("whole","");
+    setBox("num","");
+    setBox("den","");
+    msgEl.textContent="";
+    msgEl.className="msg";
+  }
+  function validateReady(){
+    if(!started || !current){ btnSubmit.disabled=true; return; }
+
+    const w = boxValue("whole");
+    const n = boxValue("num");
+    const d = boxValue("den");
+    // For strict mixed: whole must be present if requiredMixed; otherwise whole must be blank or 0
+    if(current.requiresMixed){
+      if(w==="" || n==="" || d===""){ btnSubmit.disabled=true; return; }
+      const wi=Number(w), ni=Number(n), di=Number(d);
+      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
+      if(wi<1 || ni<1 || di<2 || ni>=di) { btnSubmit.disabled=true; return; }
+      if(!isSimplest(ni,di)) { btnSubmit.disabled=false; return; } // still allow submit; will mark wrong with message
+      btnSubmit.disabled=false;
+      return;
+    }else{
+      // fraction-only answer: require num+den; whole must be blank
+      if(n==="" || d===""){ btnSubmit.disabled=true; return; }
+      if(w!=="" && w!=="0"){ btnSubmit.disabled=true; return; } // disallow mixed format here
+      const ni=Number(n), di=Number(d);
+      if(!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
+      if(ni<1 || di<2 || ni>=di+9999) { btnSubmit.disabled=true; return; }
+      btnSubmit.disabled=false;
+      return;
+    }
+  }
+
+  function buildKeypad(){
+    const keys = $("keys");
+    const btn = (label, onClick, cls="")=>{
+      const b=document.createElement("button");
+      b.textContent=label;
+      if(cls) b.className=cls;
+      b.addEventListener("click", onClick);
+      keys.appendChild(b);
+      return b;
+    };
+    for(let i=1;i<=9;i++) btn(String(i), ()=>appendDigit(i));
+    btn("0", ()=>appendDigit(0), "wide");
+    btn("⌫", backspace, "alt");
+    btn("Clear", clearAll, "danger");
+  }
+
+  inWhole.addEventListener("click", ()=>setFocus("whole"));
+  inNum.addEventListener("click", ()=>setFocus("num"));
+  inDen.addEventListener("click", ()=>setFocus("den"));
+
+  btnClear.addEventListener("click", clearAll);
+
+  btnHelp.addEventListener("click", ()=>helpModal.style.display="flex");
+  closeHelp.addEventListener("click", ()=>helpModal.style.display="none");
+  helpModal.addEventListener("click", (e)=>{ if(e.target===helpModal) helpModal.style.display="none"; });
+
+  // ---------- Scratchpad ----------
+  function initPad(){
+    const ctx = pad.getContext("2d");
+    let drawing=false, erasing=false;
+    let last=null;
+
+    function resize(){
+      // match canvas internal resolution to CSS size for crisp drawing
+      const rect = pad.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      pad.width = Math.round(rect.width*dpr);
+      pad.height= Math.round(rect.height*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.lineCap="round"; ctx.lineJoin="round";
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function pt(e){
+      const r=pad.getBoundingClientRect();
+      const x=(e.clientX - r.left);
+      const y=(e.clientY - r.top);
+      return {x,y};
+    }
+    function start(e){
+      drawing=true;
+      pad.setPointerCapture(e.pointerId);
+      last=pt(e);
+    }
+    function move(e){
+      if(!drawing) return;
+      const p=pt(e);
+      ctx.strokeStyle = erasing ? "rgba(11,16,32,1)" : "rgba(234,240,255,.9)";
+      ctx.globalCompositeOperation = erasing ? "destination-out" : "source-over";
+      ctx.lineWidth = Number(thick.value||5);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last=p;
+    }
+    function end(e){
+      drawing=false;
+      last=null;
+      ctx.globalCompositeOperation="source-over";
+    }
+
+    pad.addEventListener("pointerdown", start);
+    pad.addEventListener("pointermove", move);
+    pad.addEventListener("pointerup", end);
+    pad.addEventListener("pointercancel", end);
+
+    penBtn.addEventListener("click", ()=>{ erasing=false; penBtn.classList.add("primary"); eraserBtn.classList.remove("primary"); });
+    eraserBtn.addEventListener("click", ()=>{ erasing=true; eraserBtn.classList.add("primary"); penBtn.classList.remove("primary"); });
+    padClear.addEventListener("click", ()=>{
+      ctx.clearRect(0,0,pad.width,pad.height);
+    });
+  }
+
+  // ---------- Firebase join ----------
+  if(!sid){
+    joinHint.textContent = "Missing session code. Scan the QR from your teacher.";
+    joinBtn.disabled = true;
+  }
+
+  signInAnonymously(auth).catch(err=>{
+    console.error(err);
+    statusText.textContent="Auth error";
+    alert("Firebase auth failed. Check allowed domains and anonymous auth enabled.");
+  });
+
+  onAuthStateChanged(auth, async (user)=>{
+    if(!user) return;
+    uid = user.uid;
+    statusText.textContent = "Connected";
+
+    if(!sid) return;
+
+    // Load session public data
+    const pubRef = ref(db, `sessions/${sid}/public`);
+    const snap = await get(pubRef);
+    if(!snap.exists()){
+      joinHint.textContent = "Session not found. Ask your teacher to start a session.";
+      joinBtn.disabled = true;
+      return;
+    }
+    session = snap.val();
+    wrongPenalty = Number(session.wrongPenalty||20);
+
+    // populate roster
+    const roster = (session.roster||[]).slice();
+    nameSelect.innerHTML = roster.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    joinHint.textContent = `Time limit: ${Math.round((session.timeLimitSec||720)/60)} min. Wrong penalty: ${wrongPenalty} pts.`;
+    joinBtn.disabled = false;
+
+    btnStart.disabled = true; // until joined
+    btnSubmit.disabled = true;
+
+    // Optional: listen for session changes (time limit, etc.)
+    onValue(pubRef, (s)=>{
+      if(s.exists()){
+        session = s.val();
+        wrongPenalty = Number(session.wrongPenalty||wrongPenalty);
+      }
+    });
+  });
+
+  joinBtn.addEventListener("click", async ()=>{
+    myName = nameSelect.value;
+    if(!myName){ alert("Please select your name."); return; }
+
+    // Write initial player record
+    const playerRef = ref(db, `sessions/${sid}/players/${uid}`);
+    await set(playerRef, {
+      uid,
+      name: myName,
+      status: "lobby",
+      score: 0,
+      completed: 0,
+      correct: 0,
+      startedAt: serverTimestamp(),
+      lastUpdate: serverTimestamp()
+    });
+
+    joinModal.style.display="none";
+    statusText.textContent = `Ready: ${myName}`;
+    btnStart.disabled = false;
+  });
+
+  // ---------- Game flow ----------
+  btnStart.addEventListener("click", async ()=>{
+    if(started) return;
+    started = true;
+
+    // Build questions for this run
+    questions = buildBlueprint();
+    completed = 0; correct = 0; score = 0;
+    scoreEl.textContent = "0";
+
+    // Start timers
+    const limit = Number(session?.timeLimitSec || 720);
+    const now = Date.now();
+    roundEndsAt = now + limit*1000;
+    qStartedAt = now;
+
+    // Update status in DB
+    await update(ref(db, `sessions/${sid}/players/${uid}`), {
+      status: "playing",
+      score: 0,
+      completed: 0,
+      correct: 0,
+      endedAt: null,
+      lastUpdate: serverTimestamp()
+    });
+
+    btnStart.disabled = true;
+
+    // First question
+    nextQuestion();
+
+    // tick
+    if(ticker) clearInterval(ticker);
+    ticker = setInterval(tick, 200);
+  });
+
+  function tick(){
+    if(!started) return;
+    const now = Date.now();
+    const leftSec = Math.max(0, Math.ceil((roundEndsAt - now)/1000));
+    roundLeftEl.textContent = fmtTime(leftSec);
+
+    const qSec = Math.max(0, Math.floor((now - qStartedAt)/1000));
+    qTimeEl.textContent = fmtTime(qSec);
+
+    // Low-time warnings
+    if(leftSec<=15){
+      roundLeftEl.style.color = "var(--bad)";
+    }else if(leftSec<=60){
+      roundLeftEl.style.color = "var(--warn)";
+    }else{
+      roundLeftEl.style.color = "var(--ink)";
+    }
+
+    if(leftSec<=0){
+      endRound("time");
+    }
+  }
+
+  function nextQuestion(){
+    if(completed>=10){
+      endRound("finished");
+      return;
+    }
+    current = questions[completed];
+    qIndexEl.textContent = String(completed+1);
+    qRender.innerHTML = exprToHtml(current.expr);
+
+    // requirement label
+    const req = [];
+    if(current.mustSimplify) req.push("Cross-cancellation possible");
+    if(current.requiresMixed) req.push("Answer must be a mixed number (simplest fractional part)");
+    else req.push("Answer must be a fraction in simplest form");
+    qReq.textContent = req.join(" • ");
+
+    clearAll();
+    setFocus(current.requiresMixed ? "whole" : "num");
+    qStartedAt = Date.now();
+    validateReady();
+  }
+
+  btnSubmit.addEventListener("click", async ()=>{
+    if(!started || !current) return;
+
+    const qSec = Math.max(0, Math.floor((Date.now() - qStartedAt)/1000));
+    const result = checkAnswer(current);
+
+    if(result.ok){
+      const pts = pointsForCorrect(qSec);
+      score += pts;
+      correct += 1;
+      completed += 1;
+
+      msgEl.className="msg good";
+      msgEl.textContent = `Correct! +${pts} points.`;
+
+      scoreEl.textContent = String(score);
+
+      await update(ref(db, `sessions/${sid}/players/${uid}`), {
+        score, correct, completed,
+        status: completed>=10 ? "finished" : "playing",
+        endedAt: (completed>=10) ? Date.now() : null,
+        lastUpdate: serverTimestamp()
+      });
+
+      nextQuestion();
+    }else{
+      // wrong: 0 for this question + penalty, but do NOT advance
+      score = Math.max(0, score - wrongPenalty);
+      msgEl.className="msg bad";
+      msgEl.textContent = result.reason + `  (-${wrongPenalty} points)`;
+
+      scoreEl.textContent = String(score);
+
+      await update(ref(db, `sessions/${sid}/players/${uid}`), {
+        score,
+        status: "playing",
+        lastUpdate: serverTimestamp()
+      });
+    }
+  });
+
+  function checkAnswer(q){
+    const w = boxValue("whole");
+    const n = boxValue("num");
+    const d = boxValue("den");
+
+    if(q.requiresMixed){
+      // must be mixed, strict
+      if(w===""||n===""||d==="") return {ok:false, reason:"Incomplete mixed number."};
+      const wi=Number(w), ni=Number(n), di=Number(d);
+      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
+      if(wi<1) return {ok:false, reason:"Whole part must be ≥ 1."};
+      if(di<2 || ni<1 || ni>=di) return {ok:false, reason:"Fraction part must be proper."};
+      if(!isSimplest(ni,di)) return {ok:false, reason:"Not in simplest form."};
+
+      const target = toMixed(q.ans);
+      // target must actually be mixed
+      if(!(Math.abs(q.ans.n)>q.ans.d && Math.abs(q.ans.n)%q.ans.d!==0)){
+        return {ok:false, reason:"This question is not a mixed number target (generation issue)."};
+      }
+      const ok = (wi===target.whole && ni===target.remN && di===target.remD);
+      return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
+    }else{
+      // must be simplest fraction, and whole must be blank
+      if(w!=="" && w!=="0") return {ok:false, reason:"Do not enter a whole part for this question."};
+      if(n===""||d==="") return {ok:false, reason:"Incomplete fraction."};
+      const ni=Number(n), di=Number(d);
+      if(!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
+      if(di<2 || ni<1) return {ok:false, reason:"Invalid fraction."};
+      const r = reduce(ni,di);
+      if(!(r.n===ni && r.d===di)) return {ok:false, reason:"Not in simplest form."};
+
+      // compare to correct answer; for non-mixed we ensure answer should be < 1
+      const ok = (ni===q.ans.n && di===q.ans.d);
+      return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
+    }
+  }
+
+  async function endRound(why){
+    if(!started) return;
+    started=false;
+    btnSubmit.disabled=true;
+    btnStart.disabled=true;
+
+    if(ticker){ clearInterval(ticker); ticker=null; }
+
+    // If timed out mid-question, it is unattempted (no extra penalty).
+    const status = (why==="finished") ? "finished" : "timeup";
+    msgEl.className="msg warn";
+    msgEl.textContent = (why==="finished")
+      ? "Done! You finished all 10 questions."
+      : "Time's up! Unfinished questions are unattempted.";
+
+    statusText.textContent = status;
+
+    await update(ref(db, `sessions/${sid}/players/${uid}`), {
+      status,
+      score, correct, completed,
+      endedAt: Date.now(),
+      lastUpdate: serverTimestamp()
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // Init UI bits
+  buildKeypad();
+  setFocus("num");
+  initPad();
+</script>
+</body>
+
+</html>
