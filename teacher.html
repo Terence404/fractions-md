@@ -212,30 +212,6 @@
     return out;
   }
 
-  // ---------- Minimal QR generator (Nayuki-style, compact) ----------
-  // For classroom use: encode plain URL text. (This is a small QR implementation—no external libs.)
-  // Source inspiration: Project Nayuki QR (public domain). Simplified for v1.
-
-    // Tiny fallback: use browser built-in QR via Image API is not available offline, so we implement a simple QR.
-    // This small encoder supports byte-mode text; error correction is modest but fine for short URLs.
-    // To keep this file short, we use a minimal QR library-like routine.
-    const qr = QrCode.encodeText(text, QrCode.Ecc.MEDIUM);
-    const border = 2;
-    const scale = Math.floor(Math.min(canvas.width, canvas.height) / (qr.size + border*2));
-    const offsetX = Math.floor((canvas.width  - (qr.size + border*2)*scale)/2);
-    const offsetY = Math.floor((canvas.height - (qr.size + border*2)*scale)/2);
-
-    ctx.fillStyle="#fff";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle="#000";
-    for(let y=0;y<qr.size;y++){
-      for(let x=0;x<qr.size;x++){
-        if(qr.getModule(x,y)){
-          ctx.fillRect(offsetX+(x+border)*scale, offsetY+(y+border)*scale, scale, scale);
-        }
-      }
-    }
-
   // ---------- Auth ----------
   signInAnonymously(auth).catch(err=>{
     authStatus.textContent = "Auth error";
@@ -372,6 +348,3 @@ document.getElementById("qrImg").src = qrUrl;
 </body>
 
 </html>
-
-
-
