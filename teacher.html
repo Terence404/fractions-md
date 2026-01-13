@@ -93,7 +93,7 @@
           <h2>Join</h2>
           <div class="body">
             <div class="qrBox">
-              <canvas id="qr" width="164" height="164" aria-label="QR code"></canvas>
+              <img id="qrImg" alt="QR code" style="width:280px;height:280px;background:#fff;border-radius:12px" />
               <div>
                 <div class="small">Session code</div>
                 <div id="sessionCode" class="mono" style="font-size:22px;margin:2px 0 8px">—</div>
@@ -215,16 +215,6 @@
   // ---------- Minimal QR generator (Nayuki-style, compact) ----------
   // For classroom use: encode plain URL text. (This is a small QR implementation—no external libs.)
   // Source inspiration: Project Nayuki QR (public domain). Simplified for v1.
-  function drawQr(canvas, text){
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // If no text, blank
-    if(!text || text==="—"){
-      ctx.fillStyle="#fff"; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle="#999"; ctx.font="12px system-ui"; ctx.fillText("QR", 74, 88);
-      return;
-    }
 
     // Tiny fallback: use browser built-in QR via Image API is not available offline, so we implement a simple QR.
     // This small encoder supports byte-mode text; error correction is modest but fine for short URLs.
@@ -585,7 +575,8 @@
     $("activeSid").textContent = sid;
     sessionCodeEl.textContent = sid;
     joinLinkEl.textContent = joinUrl.toString();
-    drawQr($("qr"), joinUrl.toString());
+    const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(joinUrl.toString());
+document.getElementById("qrImg").src = qrUrl;
     btnCopy.disabled = false;
     btnEnd.disabled  = false;
 
@@ -615,7 +606,7 @@
     $("activeSid").textContent="—";
     sessionCodeEl.textContent="—";
     joinLinkEl.textContent="—";
-    drawQr($("qr"), "—");
+    document.getElementById("qrImg").removeAttribute("src");
     btnCopy.disabled=true;
     btnEnd.disabled=true;
   });
@@ -670,3 +661,4 @@
 </body>
 
 </html>
+
