@@ -650,8 +650,16 @@
 
   function makeJoinUrl(sid){
     const u = new URL(location.href);
-    u.pathname = u.pathname.replace(/teacher\.html$/i, "student.html");
-    u.search = "?sid=" + encodeURIComponent(sid);
+    const p = u.pathname || "";
+    if(/teacher\.html$/i.test(p)){
+      u.pathname = p.replace(/teacher\.html$/i, "student.html");
+    }else if(/\/$/.test(p)){
+      u.pathname = p + "student.html";
+    }else{
+      u.pathname = p.replace(/[^\/]+$/,"") + "student.html";
+    }
+    u.search = "?sid=" + encodeURIComponent(String(sid||""));
+    u.hash = "";
     return u.toString();
   }
 
