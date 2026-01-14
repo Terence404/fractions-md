@@ -344,17 +344,10 @@
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-<script>
-setTimeout(()=>{
-  if(!window.firebase){
-    const el=document.getElementById("joinHint")||document.getElementById("setupHint")||document.getElementById("hint");
-    if(el) el.textContent = "Firebase scripts failed to load. Check Wi‑Fi / content filter. Try mobile data or another browser.";
-  }
-}, 4000);
-
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
     getDatabase, ref, get, set, update, onValue, off, runTransaction
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
@@ -371,7 +364,17 @@ setTimeout(()=>{
 
   // --- DOM ---
   const $ = (id)=>document.getElementById(id);
-  const sid = new URLSearchParams(location.search).get("sid") || new URLSearchParams((location.hash||"").replace(/^#/, "")).get("sid") || "";
+  function getSid(){
+    const sp = new URLSearchParams(location.search);
+    let s = sp.get("sid") || "";
+    if(!s && location.hash){
+      const h = location.hash.replace(/^#/, "");
+      const sp2 = new URLSearchParams(h);
+      s = sp2.get("sid") || (h.startsWith("sid=")?h.slice(4):"");
+    }
+    return (s||"").trim();
+  }
+  const sid = getSid();
   $("sidLabel").textContent = sid || "(missing sid)";
   $("sidLabel2").textContent = sid || "(missing sid)";
 
@@ -404,6 +407,7 @@ setTimeout(()=>{
   // --- State ---
   let app, auth, db;
   let uid = "";
+  let authReady = false;
   let session = null;
   let playerName = "";
   let score = 0;
@@ -745,9 +749,9 @@ setTimeout(()=>{
   }
 
   // --- Firebase / session loading ---
-  firebase.initializeApp(firebaseConfig);
-  auth = firebase.auth();
-  db = firebase.database();
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getDatabase(app);
 
   if(!sid){
     joinHint.textContent = "Missing session code. Please scan the teacher QR code.";
@@ -761,8 +765,8 @@ setTimeout(()=>{
     btnJoin.disabled = true;
 
     // Load once, then also listen for roster updates (helps if teacher just started session)
-    const pubRef = db.ref(`sessions/${sid}/public`);
-    const snap = const snap = await pubRef.once("value");
+    const pubRef = ref(db, `sessions/${sid}/public`);
+    const snap = await get(pubRef);
     if(!snap.exists()){
       joinHint.textContent = "Session not found. Please rescan the QR code.";
       nameSelect.innerHTML = `<option value="">(Session not found)</option>`;
@@ -771,7 +775,7 @@ setTimeout(()=>{
     session = snap.val();
     wrongPenalty = Number(session.wrongPenalty || 20);
 
-    pubRef.on("value", (s)=>{
+    onValue(pubRef, (s)=>{
       if(!s.exists()) return;
       session = s.val();
       wrongPenalty = Number(session.wrongPenalty || wrongPenalty);
@@ -781,26 +785,40 @@ setTimeout(()=>{
           .concat(roster.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`));
         nameSelect.innerHTML = options.join("");
         nameSelect.disabled = false;
-        joinHint.textContent = "Select your name, then press Join.";
+        joinHint.textContent = authReady ? "Select your name, then press Join." : "Select your name. Waiting for sign-in…";
       }else{
         nameSelect.innerHTML = `<option value="">(Roster not loaded)</option>`;
         nameSelect.disabled = true;
         joinHint.textContent = "Roster not loaded. Ask your teacher to restart the session.";
       }
-      btnJoin.disabled = true;
-    }, (err)=>{
-      console.error(err);
-      nameSelect.innerHTML = `<option value="">(Cannot load roster)</option>`;
-      nameSelect.disabled = true;
-      btnJoin.disabled = true;
-      joinHint.textContent = "Cannot load class list (permission/network). If you are on school Wi‑Fi, try again on mobile data or ask teacher to check Firebase rules.";
-    });// Setup overall time based on teacher config
+      btnJoin.disabled = !(authReady && nameSelect.value);
+    });
+
+    // Setup overall time based on teacher config
     const total = Number(session.timeLimitSec || 720);
     overallEndMs = Date.now() + total*1000;
   }
 
-  nameSelect.addEventListener("change", ()=>{
-    btnJoin.disabled = !nameSelect.value;
+    // Start loading the session roster immediately (do not wait for auth).
+  // If rules require auth, this may fail initially; we will retry once auth completes.
+  let rosterLoaded = false;
+  const authWatchdog = setTimeout(()=>{
+    if(!authReady){
+      joinHint.textContent = "Still signing in… If you opened this from the Camera QR preview, tap Share → Open in Safari/Chrome, then reload.";
+    }
+  }, 6000);
+
+  loadSession().then(()=>{ rosterLoaded = true; }).catch((e)=>{
+    console.error(e);
+    // If this is a permission issue before auth, wait for auth and retry once.
+    joinHint.textContent = "Could not load class list yet. Waiting for sign-in…";
+  });
+
+nameSelect.addEventListener("change", ()=>{
+    btnJoin.disabled = !(nameSelect.value && authReady);
+    if(nameSelect.value && !authReady){
+      joinHint.textContent = "Waiting for sign-in… If this stays, open the link in Safari/Chrome and try again.";
+    }
   });
 
   btnRefresh.addEventListener("click", ()=>{
@@ -814,33 +832,38 @@ setTimeout(()=>{
     rulesModal.style.display = "none";
   });
 
-  auth.onAuthStateChanged( async (user)=>{
+  onAuthStateChanged(auth, (user)=>{
     if(user){
       uid = user.uid;
+      authReady = true;
       authStatus.textContent = "Signed in (anon)";
-      await loadSession();
+      // If roster load was blocked before auth, retry now.
+      if(!rosterLoaded){
+        // Retry roster load now that we have auth.
+        loadSession().then(()=>{ rosterLoaded = true; }).catch((e)=>{
+          console.error(e);
+          joinHint.textContent = "Cannot load class list (network/rules). Tap Refresh or rescan the QR code.";
+        });
+      }
+      // If roster already loaded, enable joining.
+      if(!nameSelect.disabled){
+        joinHint.textContent = nameSelect.value ? "Press Join to start." : "Select your name, then press Join.";
+        btnJoin.disabled = !nameSelect.value;
+      }
     }else{
+      authReady = false;
       authStatus.textContent = "Signing in…";
     }
   });
 
-  auth.signInAnonymously().catch(err=>{
+  signInAnonymously(auth).catch(err=>{
     authStatus.textContent = "Auth error";
     joinHint.textContent = "Auth error: " + (err?.code || err?.message || String(err));
     console.error(err);
   });
 
-  
-  // If auth is blocked/hanging (common in in‑app QR browsers), show a clear hint instead of "Loading…" forever.
-  setTimeout(()=>{
-    if(!uid){
-      const msg = "Still signing in… If you opened this inside a QR/camera preview browser, tap Share/⋯ and choose “Open in Safari/Chrome”. Also check Wi‑Fi/content filters blocking gstatic/firebase.";
-      authStatus.textContent = "Signing in…";
-      joinHint.textContent = msg;
-    }
-  }, 5000);
-async function upsertPlayerOnJoin(name){
-    const playerRef = db.ref(`sessions/${sid}/players/${uid}`);
+  async function upsertPlayerOnJoin(name){
+    const playerRef = ref(db, `sessions/${sid}/players/${uid}`);
     const now = Date.now();
 
     await runTransaction(playerRef, (cur)=>{
@@ -871,7 +894,7 @@ async function upsertPlayerOnJoin(name){
   }
 
   async function pushScore(){
-    const playerRef = db.ref(`sessions/${sid}/players/${uid}`);
+    const playerRef = ref(db, `sessions/${sid}/players/${uid}`);
     const now = Date.now();
     await runTransaction(playerRef, (cur)=>{
       const curObj = (cur && typeof cur==="object") ? cur : {};
@@ -891,10 +914,14 @@ async function upsertPlayerOnJoin(name){
   // heartbeat so teacher sees “last seen”
   setInterval(()=>{
     if(!uid || !playerName || !sid) return;
-    update(db.ref(`sessions/${sid}/players/${uid}`), { lastSeen: Date.now() }).catch(()=>{});
+    update(ref(db, `sessions/${sid}/players/${uid}`), { lastSeen: Date.now() }).catch(()=>{});
   }, 8000);
 
   btnJoin.addEventListener("click", async ()=>{
+    if(!authReady || !uid){
+      joinHint.textContent = "Still signing in… Please open the link in Safari/Chrome and try again.";
+      return;
+    }
     const nm = nameSelect.value;
     if(!nm) return;
     playerName = nm;
