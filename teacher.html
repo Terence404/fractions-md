@@ -2,60 +2,197 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fractions Live Quiz — Teacher</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Teacher – Fractions Live Quiz</title>
 <style>
   :root{
-    --bg:#0b1020; --panel:#111a33; --panel2:#0f1730; --ink:#eaf0ff; --muted:#b9c6ff;
-    --good:#5cffb5; --warn:#ffd56a; --bad:#ff6b8a; --line:rgba(255,255,255,.12);
-    --radius:18px; --shadow:0 14px 40px rgba(0,0,0,.45);
+    --bg:#0b1020;
+    --card:#111a33;
+    --card2:#0f1730;
+    --text:#eaf0ff;
+    --muted:rgba(234,240,255,.72);
+    --line:rgba(234,240,255,.14);
+    --accent:#66d9ff;
+    --good:#66ff99;
+    --bad:#ff6b6b;
+    --shadow: 0 10px 28px rgba(0,0,0,.35);
+    --radius:16px;
+    --sidew: 420px;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,Segoe UI,Arial; background:radial-gradient(1000px 600px at 20% 0%, #182a5a 0%, var(--bg) 55%);
-       color:var(--ink); min-height:100vh;}
-  .wrap{max-width:1200px;margin:0 auto;padding:18px; display:grid; gap:14px; grid-template-columns: 420px 1fr;}
-  @media (max-width: 980px){ .wrap{grid-template-columns:1fr;} }
-  .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
-        border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
-  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--line); font-size:16px; letter-spacing:.2px;}
-  .card .body{padding:14px 16px}
-  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-  input, textarea, select{width:100%; background:rgba(0,0,0,.22); color:var(--ink); border:1px solid var(--line);
-         border-radius:12px; padding:10px 12px; outline:none;}
-  textarea{min-height:160px;resize:vertical}
-  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
-  button{border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--ink);
-         padding:10px 12px; border-radius:12px; cursor:pointer}
-  button.primary{background:rgba(92,255,181,.18); border-color:rgba(92,255,181,.35)}
-  button.danger{background:rgba(255,107,138,.16); border-color:rgba(255,107,138,.35)}
-  button:disabled{opacity:.55; cursor:not-allowed}
-  .mono{font-family:ui-monospace,Consolas,monospace}
-  .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line);
-        border-radius:999px; background:rgba(0,0,0,.18); font-size:12px; color:var(--muted)}
-  .grid{display:grid; gap:12px}
-  .qrBox{display:grid; grid-template-columns: 164px 1fr; gap:12px; align-items:center}
-  canvas#qr{width:164px;height:164px; background:#fff; border-radius:12px}
-  .leaderHead{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
-  .toggle{display:flex; gap:8px; align-items:center}
-  .table{width:100%; border-collapse:separate; border-spacing:0}
-  .table th,.table td{padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); font-size:13px}
-  .table th{color:var(--muted); font-weight:600; text-align:left; position:sticky; top:0; background:rgba(10,16,32,.65); backdrop-filter: blur(6px)}
-  .rank{width:44px;color:var(--muted)}
-  .score{font-weight:700}
-  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(1200px 600px at 10% 0%, #1a2a5a 0%, #0b1020 55%, #060914 100%);color:var(--text);}
+  .layout{
+    display:grid;
+    grid-template-columns: var(--sidew) 1fr;
+    gap:14px;
+    height:100vh;
+    padding:14px;
+  }
+  .sidebar{min-width:0}
+  .main{min-width:0}
+
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .card h2{
+    margin:0;
+    padding:12px 14px;
+    font-size:16px;
+    letter-spacing:.2px;
+    background:rgba(0,0,0,.18);
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .body{padding:12px 14px}
+  .grid{display:grid;gap:10px}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+  input, textarea, select{
+    width:100%;
+    padding:10px 10px;
+    border-radius:12px;
+    border:1px solid rgba(234,240,255,.16);
+    background:rgba(0,0,0,.20);
+    color:var(--text);
+    outline:none;
+  }
+  textarea{min-height:140px;resize:vertical}
+  .row{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
+  .row3{display:grid;grid-template-columns: 1fr 1fr 1fr; gap:10px}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:999px;
+    border:1px solid rgba(234,240,255,.16);
+    background:rgba(0,0,0,.18);
+    font-size:12px; color:var(--muted);
+  }
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+  .btnRow{display:flex; gap:10px; flex-wrap:wrap}
+  button{
+    border:0; border-radius:12px;
+    padding:10px 12px;
+    font-weight:700;
+    cursor:pointer;
+    color:#001018;
+    background:var(--accent);
+    box-shadow:0 10px 20px rgba(102,217,255,.18);
+  }
+  button.secondary{background:rgba(234,240,255,.12); color:var(--text); box-shadow:none; border:1px solid rgba(234,240,255,.16)}
+  button.danger{background:var(--bad); color:#240000}
+  button:disabled{opacity:.45; cursor:not-allowed}
   .small{font-size:12px;color:var(--muted)}
+  .muted{color:var(--muted)}
+  .hr{height:1px;background:var(--line); margin:12px 0}
+
+  /* Join area */
+  .joinWrap{display:grid;grid-template-columns: 1fr; gap:10px}
+  .joinCode{font-size:34px;font-weight:900;letter-spacing:1px;margin:2px 0 2px}
+  .joinLinkBig{
+    word-break:break-all;
+    font-size:18px;
+    line-height:1.25;
+    padding:10px 12px;
+    border:1px solid rgba(234,240,255,.14);
+    border-radius:12px;
+    background:rgba(0,0,0,.18);
+  }
+  .qrCanvas{
+    width:560px; height:560px;
+    background:#fff;
+    border-radius:18px;
+    border:10px solid #fff; /* extra quiet zone */
+    box-shadow: 0 12px 24px rgba(0,0,0,.35);
+    display:block;
+  }
+  .qrHint{
+    font-size:12px;color:var(--muted);
+    margin-top:6px;
+  }
+
+  /* Leaderboard */
+  .topBar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .toggle{
+    display:inline-flex; border:1px solid rgba(234,240,255,.16);
+    border-radius:999px; overflow:hidden;
+    background:rgba(0,0,0,.18);
+  }
+  .toggle button{
+    box-shadow:none;
+    padding:8px 10px;
+    border-radius:0;
+    background:transparent;
+    color:var(--muted);
+    font-weight:800;
+  }
+  .toggle button.active{
+    background:rgba(102,217,255,.18);
+    color:var(--text);
+  }
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th,td{padding:10px 8px; border-bottom:1px solid rgba(234,240,255,.10); text-align:left}
+  th{color:var(--muted); font-weight:700; font-size:12px}
+  .rank{width:44px; color:var(--muted)}
+  .score{width:90px; font-weight:900}
+  .right{text-align:right}
+  .nameCell{font-weight:800}
+  .offline{opacity:.55}
+
+  /* Collapse */
+  .collapseBtn{
+    background:rgba(234,240,255,.12);
+    color:var(--text);
+    border:1px solid rgba(234,240,255,.16);
+    box-shadow:none;
+    padding:8px 10px;
+    border-radius:12px;
+    font-weight:800;
+  }
+  body.collapsed{ }
+  body.collapsed .layout{ grid-template-columns: 0 1fr; }
+  body.collapsed .sidebar{ display:none; }
+
+  /* Responsive */
+  @media (max-width: 980px){
+    :root{ --sidew: 100%; }
+    .layout{grid-template-columns: 1fr; height:auto}
+    .qrCanvas{ width:420px; height:420px; }
+  }
+  @media (max-width: 520px){
+    .qrCanvas{ width:320px; height:320px; }
+  }
 </style>
 </head>
+
 <body>
-  <div class="wrap">
+<div class="layout">
+  <div class="sidebar">
     <div class="card">
-      <h2>Session setup</h2>
+      <h2>
+        <span>Session setup</span>
+        <button class="collapseBtn" id="btnCollapse">Hide panel</button>
+      </h2>
       <div class="body grid">
         <div class="pill">Status: <span id="authStatus" class="mono">Signing in…</span></div>
+        <div class="pill">Session: <span id="sidPill" class="mono">—</span></div>
 
         <label>Class roster (one name per line)</label>
-        <textarea id="roster" placeholder="e.g.\nAlicia Tan\nBen Lim\n..."></textarea>
+        <textarea id="roster" placeholder="e.g.
+Alicia Tan
+Ben Lim
+..."></textarea>
+
+        <div class="btnRow">
+          <button class="secondary" id="btnSaveRoster" disabled>Save roster</button>
+          <button class="secondary" id="btnLoadRoster" disabled>Reload roster</button>
+        </div>
 
         <div class="row">
           <div>
@@ -64,14 +201,14 @@
           </div>
           <div>
             <label>Wrong answer penalty (points)</label>
-            <input id="wrongPenalty" type="number" min="0" max="100" step="5" value="20" />
+            <input id="wrongPenalty" type="number" min="0" max="120" step="5" value="20" />
           </div>
         </div>
 
         <div class="row">
           <div>
             <label>Leaderboard size (Top N)</label>
-            <input id="topN" type="number" min="5" max="30" step="1" value="12" />
+            <input id="topN" type="number" min="5" max="60" step="1" value="12" />
           </div>
           <div>
             <label>Session code length</label>
@@ -83,268 +220,869 @@
           </div>
         </div>
 
-        <div class="btns">
-          <button class="primary" id="btnStart">Start new session</button>
-          <button id="btnCopy" disabled>Copy join link</button>
+        <div class="btnRow">
+          <button id="btnStart" disabled>Start new session</button>
           <button class="danger" id="btnEnd" disabled>End session</button>
         </div>
 
-        <div class="card" style="margin-top:10px">
-          <h2>Join</h2>
-          <div class="body">
-            <div class="qrBox">
-              <img id="qrImg" alt="QR code" style="width:280px;height:280px;background:#fff;border-radius:12px" />
-              <div>
-                <div class="small">Session code</div>
-                <div id="sessionCode" class="mono" style="font-size:22px;margin:2px 0 8px">—</div>
-                <div class="small">Join link</div>
-                <div id="joinLink" class="mono" style="word-break:break-all; font-size:12px; opacity:.9">—</div>
-                <div class="small" style="margin-top:8px">Tip: project this screen; students scan the QR and pick their name.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="small">Note: Students never need accounts; anonymous sign-in gives each device a unique ID.</div>
+        <div class="small" id="setupHint"></div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Live leaderboard</h2>
+    <div class="card" style="margin-top:14px">
+      <h2>Join</h2>
       <div class="body">
-        <div class="leaderHead">
-          <div class="pill">Active session: <span id="activeSid" class="mono">—</span></div>
-          <div class="toggle">
-            <label class="small" style="margin:0">View:</label>
-            <select id="viewMode">
-              <option value="top">Top only</option>
-              <option value="full">Full list</option>
-            </select>
+        <div class="joinWrap">
+          <div class="small">Session code</div>
+          <div id="sessionCode" class="mono joinCode">—</div>
+
+          <canvas id="qr" class="qrCanvas" width="560" height="560" aria-label="QR code"></canvas>
+          <div class="qrHint">Students scan this QR, then select their name and press Join.</div>
+
+          <div class="small" style="margin-top:8px">Join link</div>
+          <div id="joinLink" class="mono joinLinkBig">—</div>
+
+          <div class="btnRow">
+            <button class="secondary" id="btnCopy" disabled>Copy join link</button>
           </div>
-        </div>
-        <div style="margin-top:10px; max-height:70vh; overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:14px">
-          <table class="table">
-            <thead>
-              <tr>
-                <th class="rank">#</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th style="width:110px">Score</th>
-                <th style="width:90px">Done</th>
-              </tr>
-            </thead>
-            <tbody id="lbBody">
-              <tr><td colspan="5" class="small" style="padding:14px">No session yet.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="small" style="margin-top:10px">
-          Ranking: higher score first. Tie-break: more completed, then earlier end time (if finished).
+
+          <div class="small" id="joinHint"></div>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="main">
+    <div class="card" style="height:100%">
+      <h2>
+        <span>Live leaderboard</span>
+        <span class="small" id="lbStatus">—</span>
+      </h2>
+      <div class="body">
+        <div class="topBar">
+          <div class="toggle" aria-label="Score mode toggle">
+            <button id="modeCurrent" class="active" type="button">Current</button>
+            <button id="modeBest" type="button">Best</button>
+          </div>
+
+          <div class="small">
+            Tip: If you want the full list, set Top N to 38.
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div style="overflow:auto; max-height: calc(100vh - 190px);">
+          <table>
+            <thead>
+              <tr>
+                <th class="rank">#</th>
+                <th>Name</th>
+                <th class="right">Score</th>
+                <th class="right">Answered</th>
+                <th class="right">Last seen</th>
+              </tr>
+            </thead>
+            <tbody id="lbBody">
+              <tr><td colspan="5" class="muted">No session yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-  // ---------- Firebase imports ----------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
-    getDatabase, ref, set, update, get, onValue, remove, serverTimestamp
+    getDatabase, ref, set, get, update, onValue, off, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  // ======= PASTE YOUR FIREBASE CONFIG HERE (in BOTH files) =======
+  // --- Firebase config (from your current repo) ---
   const firebaseConfig = {
+    apiKey: "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
+    authDomain: "multiply-and-divide-fractions.firebaseapp.com",
+    databaseURL: "https://multiply-and-divide-fractions-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "multiply-and-divide-fractions",
+    storageBucket: "multiply-and-divide-fractions.firebasestorage.app",
+    messagingSenderId: "641613369936",
+    appId: "1:641613369936:web:8ca6dbc66b015bf9087755"
+  };
 
-  apiKey: "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
-
-  authDomain: "multiply-and-divide-fractions.firebaseapp.com",
-
-  databaseURL: "https://multiply-and-divide-fractions-default-rtdb.asia-southeast1.firebasedatabase.app",
-
-  projectId: "multiply-and-divide-fractions",
-
-  storageBucket: "multiply-and-divide-fractions.firebasestorage.app",
-
-  messagingSenderId: "641613369936",
-
-  appId: "1:641613369936:web:8ca6dbc66b015bf9087755"
-
-};
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getDatabase(app);
-
+  // --- DOM helpers ---
   const $ = (id)=>document.getElementById(id);
-
   const authStatus = $("authStatus");
-  const btnStart = $("btnStart");
-  const btnCopy = $("btnCopy");
-  const btnEnd  = $("btnEnd");
   const rosterTA = $("roster");
   const timeLimit = $("timeLimit");
   const wrongPenalty = $("wrongPenalty");
   const topN = $("topN");
   const codeLen = $("codeLen");
+  const btnStart = $("btnStart");
+  const btnEnd = $("btnEnd");
+  const btnCopy = $("btnCopy");
+  const btnSaveRoster = $("btnSaveRoster");
+  const btnLoadRoster = $("btnLoadRoster");
+  const setupHint = $("setupHint");
+  const joinHint = $("joinHint");
+  const sidPill = $("sidPill");
   const sessionCodeEl = $("sessionCode");
   const joinLinkEl = $("joinLink");
-  const activeSidEl = $("activeSid");
   const lbBody = $("lbBody");
-  const viewMode = $("viewMode");
+  const lbStatus = $("lbStatus");
+  const qrCanvas = $("qr");
+  const btnCollapse = $("btnCollapse");
 
-  let myUid = null;
-  let sid = null;
-  let unsubPlayers = null;
-  let cachedPlayers = {};
+  let app, auth, db;
+  let myUid = "";
+  let currentSid = "";
+  let scoreMode = "current"; // "current" | "best"
+  let playersUnsub = null;
 
-  // ---------- Helpers ----------
-  function randCode(len){
-    const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // avoid confusing chars
-    let s=""; for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
-    return s;
+  // --- Utils ---
+  function nowMs(){ return Date.now(); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
   }
-  function parseRoster(){
-    const lines = rosterTA.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-    // de-dup while preserving order
-    const seen=new Set(); const out=[];
-    for(const n of lines){ if(!seen.has(n.toLowerCase())){ seen.add(n.toLowerCase()); out.push(n); } }
+  function parseRoster(text){
+    const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    // dedupe case-insensitive, preserve order
+    const seen = new Set();
+    const out = [];
+    for(const n of lines){
+      const key = n.toLowerCase();
+      if(!seen.has(key)){ seen.add(key); out.push(n); }
+    }
     return out;
   }
+  function randCode(len){
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/1/I
+    let s="";
+    crypto.getRandomValues(new Uint32Array(len)).forEach(v=>{
+      s += chars[v % chars.length];
+    });
+    return s;
+  }
+  function fmtLastSeen(ts){
+    if(!ts) return "—";
+    const ms = typeof ts === "number" ? ts : null;
+    if(!ms) return "—";
+    const diff = Math.max(0, Math.round((Date.now() - ms)/1000));
+    if(diff < 5) return "now";
+    if(diff < 60) return diff + "s";
+    const m = Math.round(diff/60);
+    if(m < 60) return m + "m";
+    const h = Math.round(m/60);
+    return h + "h";
+  }
 
-  // ---------- Auth ----------
-  signInAnonymously(auth).catch(err=>{
-    authStatus.textContent = "Auth error";
-    console.error(err);
-    alert("Firebase auth failed. Check Auth settings and allowed domains.");
+  // --- Embedded local QR generator (Nayuki qrcodegen, compacted) ---
+  // Public domain reference: https://www.nayuki.io/page/qr-code-generator-library
+  class QrCode {
+    static Ecc = { LOW:0, MEDIUM:1, QUARTILE:2, HIGH:3 };
+    constructor(ver, ecl, dataCodewords, mask) {
+      this.version = ver;
+      this.errorCorrectionLevel = ecl;
+      this.size = ver * 4 + 17;
+      this.modules = Array.from({length:this.size}, ()=>Array(this.size).fill(false));
+      this.isFunction = Array.from({length:this.size}, ()=>Array(this.size).fill(false));
+      this.drawFunctionPatterns();
+      const allCodewords = this.addEccAndInterleave(dataCodewords);
+      this.drawCodewords(allCodewords);
+      if (mask < 0 || mask > 7) mask = this.getBestMask();
+      this.applyMask(mask);
+      this.drawFormatBits(mask);
+      this.mask = mask;
+    }
+    static encodeText(text, ecl) {
+      const segs = QrSegment.makeSegments(text);
+      return QrCode.encodeSegments(segs, ecl);
+    }
+    static encodeSegments(segs, ecl) {
+      for (let ver = 1; ver <= 20; ver++) {
+        const dataCap = QrCode.getNumDataCodewords(ver, ecl) * 8;
+        const bb = new BitBuffer();
+        for (const seg of segs) {
+          bb.appendBits(seg.mode.modeBits, 4);
+          bb.appendBits(seg.numChars, seg.mode.numCharCountBits(ver));
+          bb.appendData(seg.bitData);
+        }
+        if (bb.length <= dataCap) {
+          bb.appendBits(0, Math.min(4, dataCap - bb.length));
+          while (bb.length % 8 !== 0) bb.appendBits(0, 1);
+          for (let pad = 0; bb.length < dataCap; pad++) bb.appendBits((pad % 2 === 0) ? 0xEC : 0x11, 8);
+          return new QrCode(ver, ecl, bb.getBytes(), -1);
+        }
+      }
+      throw new Error("QR data too long");
+    }
+    getModule(x, y) { return this.modules[y][x]; }
+
+    drawFunctionPatterns() {
+      const n = this.size;
+      const drawFinder = (x, y) => {
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (0 <= xx && xx < n && 0 <= yy && yy < n) {
+            const dist = Math.max(Math.abs(dx), Math.abs(dy));
+            const val = (dist !== 2 && dist !== 4);
+            this.modules[yy][xx] = val;
+            this.isFunction[yy][xx] = true;
+          }
+        }
+      };
+      drawFinder(3, 3);
+      drawFinder(n - 4, 3);
+      drawFinder(3, n - 4);
+
+      // Separators + timing
+      for (let i = 0; i < n; i++) {
+        this.setFunctionModule(6, i, i % 2 === 0);
+        this.setFunctionModule(i, 6, i % 2 === 0);
+      }
+      // Dark module
+      this.setFunctionModule(8, n - 8, true);
+
+      // Alignment patterns
+      const align = QrCode.getAlignmentPatternPositions(this.version);
+      for (const y of align) for (const x of align) {
+        if (!((x === 6 && y === 6) || (x === 6 && y === n - 7) || (x === n - 7 && y === 6))) {
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+            this.setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+          }
+        }
+      }
+
+      // Reserve format info areas
+      for (let i = 0; i < 9; i++) {
+        this.isFunction[8][i] = true;
+        this.isFunction[i][8] = true;
+      }
+      for (let i = n - 8; i < n; i++) {
+        this.isFunction[8][i] = true;
+        this.isFunction[i][8] = true;
+      }
+      this.isFunction[8][n - 8] = true;
+    }
+    setFunctionModule(x, y, val) {
+      this.modules[y][x] = val;
+      this.isFunction[y][x] = true;
+    }
+
+    drawCodewords(data) {
+      const n = this.size;
+      let i = 0;
+      for (let right = n - 1; right >= 1; right -= 2) {
+        if (right === 6) right--;
+        for (let vert = 0; vert < n; vert++) {
+          const y = ((right + 1) & 2) === 0 ? (n - 1 - vert) : vert;
+          for (let j = 0; j < 2; j++) {
+            const x = right - j;
+            if (this.isFunction[y][x]) continue;
+            let bit = false;
+            if (i < data.length * 8) bit = ((data[i >>> 3] >>> (7 - (i & 7))) & 1) !== 0;
+            this.modules[y][x] = bit;
+            i++;
+          }
+        }
+      }
+    }
+
+    applyMask(mask) {
+      const n = this.size;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+        if (this.isFunction[y][x]) continue;
+        let invert = false;
+        switch (mask) {
+          case 0: invert = ((x + y) % 2 === 0); break;
+          case 1: invert = (y % 2 === 0); break;
+          case 2: invert = (x % 3 === 0); break;
+          case 3: invert = ((x + y) % 3 === 0); break;
+          case 4: invert = (((y >>> 1) + Math.floor(x / 3)) % 2 === 0); break;
+          case 5: invert = ((x * y) % 2 + (x * y) % 3 === 0); break;
+          case 6: invert = ((((x * y) % 2 + (x * y) % 3) % 2) === 0); break;
+          case 7: invert = ((((x + y) % 2 + (x * y) % 3) % 2) === 0); break;
+        }
+        if (invert) this.modules[y][x] = !this.modules[y][x];
+      }
+    }
+
+    drawFormatBits(mask) {
+      const eclBits = [1,0,3,2][this.errorCorrectionLevel]; // L,M,Q,H mapping to spec bits
+      const data = (eclBits << 3) | mask;
+      let rem = data;
+      for (let i = 0; i < 10; i++) rem = (rem << 1) ^ (((rem >>> 9) & 1) * 0x537);
+      const bits = ((data << 10) | rem) ^ 0x5412;
+
+      const n = this.size;
+      for (let i = 0; i <= 5; i++) this.setFunctionModule(8, i, ((bits >>> i) & 1) !== 0);
+      this.setFunctionModule(8, 7, ((bits >>> 6) & 1) !== 0);
+      this.setFunctionModule(8, 8, ((bits >>> 7) & 1) !== 0);
+      this.setFunctionModule(7, 8, ((bits >>> 8) & 1) !== 0);
+      for (let i = 9; i < 15; i++) this.setFunctionModule(14 - i, 8, ((bits >>> i) & 1) !== 0);
+
+      for (let i = 0; i < 8; i++) this.setFunctionModule(n - 1 - i, 8, ((bits >>> i) & 1) !== 0);
+      for (let i = 8; i < 15; i++) this.setFunctionModule(8, n - 15 + i, ((bits >>> i) & 1) !== 0);
+      this.setFunctionModule(8, n - 8, true);
+    }
+
+    getBestMask() {
+      let bestMask = 0, bestPenalty = Infinity;
+      for (let mask = 0; mask < 8; mask++) {
+        const copy = this.clone();
+        copy.applyMask(mask);
+        copy.drawFormatBits(mask);
+        const p = copy.getPenaltyScore();
+        if (p < bestPenalty) { bestPenalty = p; bestMask = mask; }
+      }
+      return bestMask;
+    }
+    clone() {
+      const qr = Object.create(QrCode.prototype);
+      qr.version = this.version;
+      qr.errorCorrectionLevel = this.errorCorrectionLevel;
+      qr.size = this.size;
+      qr.mask = this.mask;
+      qr.modules = this.modules.map(r=>r.slice());
+      qr.isFunction = this.isFunction.map(r=>r.slice());
+      qr.setFunctionModule = this.setFunctionModule;
+      qr.applyMask = this.applyMask;
+      qr.drawFormatBits = this.drawFormatBits;
+      qr.getPenaltyScore = this.getPenaltyScore;
+      qr.clone = this.clone;
+      return qr;
+    }
+
+    getPenaltyScore() {
+      const n = this.size;
+      let penalty = 0;
+
+      // Adjacent modules in row/col
+      for (let y = 0; y < n; y++) {
+        let runColor = this.modules[y][0], runLen = 1;
+        for (let x = 1; x < n; x++) {
+          const c = this.modules[y][x];
+          if (c === runColor) runLen++;
+          else { if (runLen >= 5) penalty += 3 + (runLen - 5); runColor = c; runLen = 1; }
+        }
+        if (runLen >= 5) penalty += 3 + (runLen - 5);
+      }
+      for (let x = 0; x < n; x++) {
+        let runColor = this.modules[0][x], runLen = 1;
+        for (let y = 1; y < n; y++) {
+          const c = this.modules[y][x];
+          if (c === runColor) runLen++;
+          else { if (runLen >= 5) penalty += 3 + (runLen - 5); runColor = c; runLen = 1; }
+        }
+        if (runLen >= 5) penalty += 3 + (runLen - 5);
+      }
+
+      // 2x2 blocks
+      for (let y = 0; y < n - 1; y++) for (let x = 0; x < n - 1; x++) {
+        const c = this.modules[y][x];
+        if (c === this.modules[y][x+1] && c === this.modules[y+1][x] && c === this.modules[y+1][x+1]) penalty += 3;
+      }
+
+      // Finder-like patterns in rows/cols
+      const pattern = [true,false,true,true,true,false,true];
+      const hasPattern = (arr, i) => pattern.every((v,k)=>arr[i+k]===v);
+      for (let y = 0; y < n; y++) {
+        const row = this.modules[y];
+        for (let x = 0; x <= n - 7; x++) if (hasPattern(row, x)) penalty += 40;
+      }
+      for (let x = 0; x < n; x++) {
+        const col = this.modules.map(r=>r[x]);
+        for (let y = 0; y <= n - 7; y++) if (hasPattern(col, y)) penalty += 40;
+      }
+
+      // Balance
+      let dark = 0;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (this.modules[y][x]) dark++;
+      const total = n * n;
+      const k = Math.abs(dark * 20 - total * 10) / total;
+      penalty += Math.floor(k) * 10;
+
+      return penalty;
+    }
+
+    addEccAndInterleave(data) {
+      const ver = this.version;
+      const ecl = this.errorCorrectionLevel;
+      const blocks = QrCode.getEccBlocks(ver, ecl);
+      const numBlocks = blocks.numBlocks;
+      const eccPerBlock = blocks.eccPerBlock;
+
+      // Split data into blocks
+      const dataLen = data.length;
+      const shortBlockLen = Math.floor(dataLen / numBlocks);
+      const numLongBlocks = dataLen % numBlocks;
+
+      const dataBlocks = [];
+      let k = 0;
+      for (let i = 0; i < numBlocks; i++) {
+        const len = shortBlockLen + (i < numLongBlocks ? 1 : 0);
+        dataBlocks.push(data.slice(k, k + len));
+        k += len;
+      }
+
+      const gen = ReedSolomonGenerator.get(eccPerBlock);
+      const eccBlocks = dataBlocks.map(b => gen.getRemainder(b));
+
+      // Interleave
+      const out = [];
+      const maxDataLen = shortBlockLen + 1;
+      for (let i = 0; i < maxDataLen; i++) {
+        for (let b = 0; b < numBlocks; b++) {
+          if (i < dataBlocks[b].length) out.push(dataBlocks[b][i]);
+        }
+      }
+      for (let i = 0; i < eccPerBlock; i++) {
+        for (let b = 0; b < numBlocks; b++) out.push(eccBlocks[b][i]);
+      }
+      return out;
+    }
+
+    static getAlignmentPatternPositions(ver) {
+      if (ver === 1) return [];
+      const num = Math.floor(ver / 7) + 2;
+      const step = (ver === 32) ? 26 : Math.ceil((ver*4 + 17 - 13) / (num - 1) / 2) * 2;
+      const res = [6];
+      for (let i = 0; i < num - 2; i++) res.push(ver*4 + 17 - 7 - i*step);
+      res.push(ver*4 + 17 - 7);
+      return res;
+    }
+
+    static getNumDataCodewords(ver, ecl) {
+      // Total codewords = (ver*4+17)^2 minus function patterns, etc. Using table subset (ver 1..20)
+      // Precomputed from Nayuki reference.
+      const table = [
+        null,
+        [19,16,13,9],
+        [34,28,22,16],
+        [55,44,34,26],
+        [80,64,48,36],
+        [108,86,62,46],
+        [136,108,76,60],
+        [156,124,88,66],
+        [194,154,110,86],
+        [232,182,132,100],
+        [274,216,154,122],
+        [324,254,180,140],
+        [370,290,206,158],
+        [428,334,244,180],
+        [461,365,261,197],
+        [523,415,295,223],
+        [589,453,325,253],
+        [647,507,367,283],
+        [721,563,397,313],
+        [795,627,445,341],
+        [861,669,485,385],
+      ];
+      const idx = ecl; // L=0 M=1 Q=2 H=3 mapped above
+      return table[ver][idx];
+    }
+
+    static getEccBlocks(ver, ecl) {
+      // Subset table for versions 1..20: [eccPerBlock, numBlocks] per ecl L,M,Q,H
+      // Derived from QR spec (and Nayuki).
+      const t = {
+        1:  [[7,1],[10,1],[13,1],[17,1]],
+        2:  [[10,1],[16,1],[22,1],[28,1]],
+        3:  [[15,1],[26,1],[18,2],[22,2]],
+        4:  [[20,1],[18,2],[26,2],[16,4]],
+        5:  [[26,1],[24,2],[18,4],[22,4]],
+        6:  [[18,2],[16,4],[24,4],[28,4]],
+        7:  [[20,2],[18,4],[18,6],[26,5]],
+        8:  [[24,2],[22,4],[22,6],[26,6]],
+        9:  [[30,2],[22,5],[20,8],[24,8]],
+        10: [[18,4],[26,5],[24,8],[28,8]],
+        11: [[20,4],[30,5],[28,8],[24,11]],
+        12: [[24,4],[22,8],[26,10],[28,11]],
+        13: [[26,4],[22,9],[24,12],[22,16]],
+        14: [[30,4],[24,9],[20,16],[24,16]],
+        15: [[22,6],[24,10],[30,12],[24,18]],
+        16: [[24,6],[28,10],[24,17],[30,16]],
+        17: [[28,6],[28,11],[28,16],[28,19]],
+        18: [[30,6],[26,13],[28,18],[28,21]],
+        19: [[28,7],[26,14],[26,21],[26,25]],
+        20: [[28,8],[26,16],[30,20],[28,25]],
+      };
+      const [eccPerBlock, numBlocks] = t[ver][ecl];
+      return { eccPerBlock, numBlocks };
+    }
+  }
+
+  class QrSegment {
+    constructor(mode, numChars, bitData) { this.mode = mode; this.numChars = numChars; this.bitData = bitData; }
+    static Mode = {
+      BYTE: {
+        modeBits: 0b0100,
+        numCharCountBits: (ver) => (ver <= 9 ? 8 : ver <= 26 ? 16 : 16)
+      }
+    };
+    static makeSegments(text) {
+      const bytes = new TextEncoder().encode(text);
+      const bb = new BitBuffer();
+      for (const b of bytes) bb.appendBits(b, 8);
+      return [new QrSegment(QrSegment.Mode.BYTE, bytes.length, bb)];
+    }
+  }
+
+  class BitBuffer {
+    constructor(){ this.bits = []; }
+    get length(){ return this.bits.length; }
+    appendBits(val, len){
+      for(let i=len-1;i>=0;i--) this.bits.push(((val>>>i)&1)!==0);
+    }
+    appendData(bb){ for(const b of bb.bits) this.bits.push(b); }
+    getBytes(){
+      const out=[];
+      for(let i=0;i<this.bits.length;i+=8){
+        let v=0;
+        for(let j=0;j<8;j++) v = (v<<1) | (this.bits[i+j] ? 1 : 0);
+        out.push(v);
+      }
+      return out;
+    }
+  }
+
+  class ReedSolomonGenerator {
+    constructor(degree) {
+      this.degree = degree;
+      this.coefficients = [1];
+      for (let i = 0; i < degree; i++) {
+        this.coefficients = ReedSolomonGenerator.multiplyPoly(this.coefficients, [1, ReedSolomonGenerator.exp(i)]);
+      }
+    }
+    static cache = new Map();
+    static get(deg){
+      if(!this.cache.has(deg)) this.cache.set(deg, new ReedSolomonGenerator(deg));
+      return this.cache.get(deg);
+    }
+    getRemainder(data){
+      const result = new Array(this.degree).fill(0);
+      for (const b of data) {
+        const factor = b ^ result.shift();
+        result.push(0);
+        for (let i = 0; i < this.degree; i++) {
+          result[i] ^= ReedSolomonGenerator.mul(this.coefficients[i + 1], factor);
+        }
+      }
+      return result;
+    }
+    static multiplyPoly(p, q){
+      const out = new Array(p.length + q.length - 1).fill(0);
+      for (let i = 0; i < p.length; i++) for (let j = 0; j < q.length; j++) out[i + j] ^= ReedSolomonGenerator.mul(p[i], q[j]);
+      return out;
+    }
+    static exp(i){
+      let x = 1;
+      for (let k = 0; k < i; k++) x = ReedSolomonGenerator.mul(x, 2);
+      return x;
+    }
+    static mul(x, y){
+      // GF(2^8) with primitive polynomial 0x11D
+      let z = 0;
+      for (let i = 7; i >= 0; i--) {
+        z = (z << 1) ^ ((z & 0x80) ? 0x11D : 0);
+        if (((y >>> i) & 1) !== 0) z ^= x;
+      }
+      return z & 0xFF;
+    }
+  }
+
+  function renderQr(canvas, text){
+    const ctx = canvas.getContext("2d");
+    // Use QUARTILE for robustness
+    const qr = QrCode.encodeText(text, QrCode.Ecc.QUARTILE);
+    const quiet = 4; // modules
+    const size = qr.size + quiet*2;
+
+    // Choose integer scale so we draw pixel-perfect and do not rely on CSS scaling
+    const scale = Math.floor(canvas.width / size);
+    const drawSize = size * scale;
+    const offset = Math.floor((canvas.width - drawSize)/2);
+
+    // White background
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Draw modules
+    ctx.fillStyle = "#000";
+    for(let y=0; y<qr.size; y++){
+      for(let x=0; x<qr.size; x++){
+        if(qr.getModule(x,y)){
+          const xx = offset + (x + quiet) * scale;
+          const yy = offset + (y + quiet) * scale;
+          ctx.fillRect(xx, yy, scale, scale);
+        }
+      }
+    }
+  }
+
+  // --- Collapse behavior ---
+  let collapsed = false;
+  btnCollapse.addEventListener("click", ()=>{
+    collapsed = !collapsed;
+    document.body.classList.toggle("collapsed", collapsed);
+    btnCollapse.textContent = collapsed ? "Show panel" : "Hide panel";
   });
 
-  onAuthStateChanged(auth, (user)=>{
+  // --- Leaderboard mode toggle ---
+  const modeCurrentBtn = $("modeCurrent");
+  const modeBestBtn = $("modeBest");
+  function setMode(m){
+    scoreMode = m;
+    modeCurrentBtn.classList.toggle("active", m==="current");
+    modeBestBtn.classList.toggle("active", m==="best");
+    renderLeaderboard(lastPlayersCache);
+  }
+  modeCurrentBtn.addEventListener("click", ()=>setMode("current"));
+  modeBestBtn.addEventListener("click", ()=>setMode("best"));
+
+  // --- Init Firebase ---
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getDatabase(app);
+
+  authStatus.textContent = "Signing in…";
+  setupHint.textContent = "";
+
+  // Keep last players to re-render on mode changes
+  let lastPlayersCache = {};
+
+  onAuthStateChanged(auth, async (user)=>{
     if(user){
       myUid = user.uid;
       authStatus.textContent = "Signed in (anon)";
       btnStart.disabled = false;
+      btnSaveRoster.disabled = false;
+      btnLoadRoster.disabled = false;
+
+      // Auto-load saved roster
+      await loadRoster();
+    }else{
+      myUid = "";
+      authStatus.textContent = "Signing in…";
     }
   });
 
-  // ---------- Session start ----------
-  btnStart.addEventListener("click", async ()=>{
-    const names = parseRoster();
-    if(names.length < 5){
-      alert("Please paste your roster (at least 5 names).");
+  signInAnonymously(auth).catch(err=>{
+    authStatus.textContent = "Auth error";
+    setupHint.textContent = "Auth error: " + (err?.code || err?.message || String(err));
+    console.error(err);
+  });
+
+  async function loadRoster(){
+    try{
+      if(!myUid) return;
+      const snap = await get(ref(db, `teachers/${myUid}/roster/default`));
+      if(snap.exists()){
+        const arr = snap.val() || [];
+        if(Array.isArray(arr) && arr.length){
+          rosterTA.value = arr.join("\n");
+          setupHint.textContent = `Loaded saved roster (${arr.length} names).`;
+        }else{
+          setupHint.textContent = "Saved roster is empty.";
+        }
+      }else{
+        setupHint.textContent = "No saved roster yet. Paste names and click Save roster.";
+      }
+    }catch(e){
+      console.error(e);
+      setupHint.textContent = "Could not load saved roster (check database rules).";
+    }
+  }
+
+  btnLoadRoster.addEventListener("click", loadRoster);
+
+  btnSaveRoster.addEventListener("click", async ()=>{
+    try{
+      const roster = parseRoster(rosterTA.value);
+      if(!roster.length){
+        setupHint.textContent = "Roster is empty. Add at least 1 name.";
+        return;
+      }
+      await set(ref(db, `teachers/${myUid}/roster/default`), roster);
+      setupHint.textContent = `Roster saved (${roster.length} names).`;
+    }catch(e){
+      console.error(e);
+      setupHint.textContent = "Could not save roster (check database rules).";
+    }
+  });
+
+  function stopPlayersListener(){
+    if(playersUnsub){
+      playersUnsub();
+      playersUnsub = null;
+    }
+  }
+
+  function listenPlayers(sid){
+    stopPlayersListener();
+    const playersRef = ref(db, `sessions/${sid}/players`);
+    const unsub = onValue(playersRef, (snap)=>{
+      const data = snap.exists() ? snap.val() : {};
+      lastPlayersCache = data || {};
+      renderLeaderboard(lastPlayersCache);
+      lbStatus.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
+    });
+    playersUnsub = ()=>off(playersRef, "value", unsub);
+  }
+
+  function renderLeaderboard(playersObj){
+    const roster = [];
+    for(const [uid, p] of Object.entries(playersObj||{})){
+      if(!p || typeof p !== "object") continue;
+      const nm = (p.name || "").trim();
+      if(!nm) continue;
+      const cur = Number(p.currentScore||0);
+      const best = Number(p.bestScore||0);
+      const metric = scoreMode==="best" ? best : cur;
+      roster.push({
+        uid,
+        name:nm,
+        cur,
+        best,
+        metric,
+        answered: Number(p.answered||0),
+        lastSeen: (typeof p.lastSeen==="number" ? p.lastSeen : null)
+      });
+    }
+
+    roster.sort((a,b)=>{
+      if(b.metric !== a.metric) return b.metric - a.metric;
+      if(b.answered !== a.answered) return b.answered - a.answered;
+      return a.name.localeCompare(b.name);
+    });
+
+    const n = Math.max(1, Math.min(999, Number(topN.value||12)));
+    const view = roster.slice(0, n);
+
+    if(!currentSid){
+      lbBody.innerHTML = `<tr><td colspan="5" class="muted">No session yet.</td></tr>`;
       return;
     }
-    const minutes = Math.max(5, Math.min(20, Number(timeLimit.value||12)));
-    const penalty = Math.max(0, Math.min(100, Number(wrongPenalty.value||20)));
-    const top = Math.max(5, Math.min(30, Number(topN.value||12)));
-    const cLen = Number(codeLen.value||6);
+    if(view.length === 0){
+      lbBody.innerHTML = `<tr><td colspan="5" class="muted">No players yet.</td></tr>`;
+      return;
+    }
 
-    sid = randCode(cLen);
-    const joinUrl = new URL(location.href.replace(/teacher\.html.*/,"student.html"));
-    joinUrl.searchParams.set("sid", sid);
+    lbBody.innerHTML = view.map((p, i)=>{
+      const offline = p.lastSeen && (Date.now() - p.lastSeen) > 45000;
+      const score = scoreMode==="best" ? p.best : p.cur;
+      return `
+        <tr class="${offline ? "offline":""}">
+          <td class="rank">${i+1}</td>
+          <td class="nameCell">${escapeHtml(p.name)}</td>
+          <td class="right score">${score}</td>
+          <td class="right">${p.answered}</td>
+          <td class="right">${fmtLastSeen(p.lastSeen)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
 
-    // write session
-    const sessionRef = ref(db, `sessions/${sid}`);
-    const payload = {
-      teacherUid: myUid,
-      public: {
-        createdAt: serverTimestamp(),
-        sid,
-        timeLimitSec: minutes*60,
-        wrongPenalty: penalty,
-        topN: top,
-        roster: names
-      }
-    };
-    await set(sessionRef, payload);
+  function setJoinDisplay(sid){
+    currentSid = sid;
+    sidPill.textContent = sid || "—";
+    sessionCodeEl.textContent = sid || "—";
+    if(!sid){
+      joinLinkEl.textContent = "—";
+      btnCopy.disabled = true;
+      // clear QR
+      const ctx = qrCanvas.getContext("2d");
+      ctx.fillStyle="#fff"; ctx.fillRect(0,0,qrCanvas.width, qrCanvas.height);
+      return;
+    }
+    const joinUrl = new URL(location.href);
+    joinUrl.pathname = joinUrl.pathname.replace(/teacher\.html$/i, "student.html");
+    joinUrl.search = "?sid=" + encodeURIComponent(sid);
 
-    // Update UI
-    $("activeSid").textContent = sid;
-    sessionCodeEl.textContent = sid;
-    joinLinkEl.textContent = joinUrl.toString();
-    const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(joinUrl.toString());
-document.getElementById("qrImg").src = qrUrl;
+    const urlStr = joinUrl.toString();
+    joinLinkEl.textContent = urlStr;
     btnCopy.disabled = false;
-    btnEnd.disabled  = false;
 
-    // Listen to players
-    attachPlayersListener();
-  });
+    // draw QR
+    renderQr(qrCanvas, urlStr);
+  }
 
   btnCopy.addEventListener("click", async ()=>{
-    const t = joinLinkEl.textContent;
-    if(!t || t==="—") return;
     try{
-      await navigator.clipboard.writeText(t);
-      btnCopy.textContent = "Copied!";
-      setTimeout(()=>btnCopy.textContent="Copy join link", 900);
-    }catch{
-      alert("Copy failed. You can manually copy the join link.");
+      await navigator.clipboard.writeText(joinLinkEl.textContent);
+      joinHint.textContent = "Copied.";
+      setTimeout(()=>joinHint.textContent="", 1200);
+    }catch(e){
+      joinHint.textContent = "Copy failed. Long-press to select and copy.";
+    }
+  });
+
+  btnStart.addEventListener("click", async ()=>{
+    setupHint.textContent = "";
+    joinHint.textContent = "";
+
+    const roster = parseRoster(rosterTA.value);
+    if(roster.length < 1){
+      setupHint.textContent = "Roster is empty. Add at least 1 name.";
+      return;
+    }
+
+    const minutes = Math.max(5, Math.min(20, Number(timeLimit.value || 12)));
+    const wrong = Math.max(0, Math.min(120, Number(wrongPenalty.value || 20)));
+    const len = Math.max(5, Math.min(7, Number(codeLen.value || 6)));
+    const sid = randCode(len);
+
+    try{
+      // Save roster for future
+      await set(ref(db, `teachers/${myUid}/roster/default`), roster);
+
+      // Create session
+      const pub = {
+        active: true,
+        createdAt: nowMs(),
+        timeLimitSec: minutes*60,
+        wrongPenalty: wrong,
+        roster: roster
+      };
+
+      await set(ref(db, `sessions/${sid}/teacherUid`), myUid);
+      await set(ref(db, `sessions/${sid}/public`), pub);
+
+      // optional teacher node
+      await set(ref(db, `teachers/${myUid}/sessions/${sid}`), { createdAt: pub.createdAt });
+
+      btnStart.disabled = true;
+      btnEnd.disabled = false;
+
+      setJoinDisplay(sid);
+      listenPlayers(sid);
+      setupHint.textContent = `Session started. Roster uploaded: ${roster.length} names.`;
+
+    }catch(e){
+      console.error(e);
+      setupHint.textContent = "Failed to start session. Check console / database rules.";
     }
   });
 
   btnEnd.addEventListener("click", async ()=>{
-    if(!sid) return;
-    if(!confirm("End session? This removes the session + leaderboard data.")) return;
-    await remove(ref(db, `sessions/${sid}`));
-    sid=null;
-    cachedPlayers={};
-    renderLeaderboard([]);
-    $("activeSid").textContent="—";
-    sessionCodeEl.textContent="—";
-    joinLinkEl.textContent="—";
-    document.getElementById("qrImg").removeAttribute("src");
-    btnCopy.disabled=true;
-    btnEnd.disabled=true;
+    if(!currentSid) return;
+    try{
+      await update(ref(db, `sessions/${currentSid}/public`), { active:false, endedAt: nowMs() });
+      setupHint.textContent = "Session ended. Leaderboard remains visible.";
+    }catch(e){
+      console.error(e);
+      setupHint.textContent = "Failed to end session.";
+    }
+    btnStart.disabled = false;
+    btnEnd.disabled = true;
   });
 
-  function attachPlayersListener(){
-    if(!sid) return;
-    const playersRef = ref(db, `sessions/${sid}/players`);
-    onValue(playersRef, (snap)=>{
-      cachedPlayers = snap.val() || {};
-      renderLeaderboard(Object.values(cachedPlayers));
-    });
-  }
+  // initial QR placeholder
+  setJoinDisplay("");
 
-  viewMode.addEventListener("change", ()=>renderLeaderboard(Object.values(cachedPlayers)));
-
-  function renderLeaderboard(players){
-    if(!players || players.length===0){
-      lbBody.innerHTML = `<tr><td colspan="5" class="small" style="padding:14px">No players yet.</td></tr>`;
-      return;
-    }
-    players.sort((a,b)=>{
-      // score desc
-      const ds=(b.score||0)-(a.score||0); if(ds!==0) return ds;
-      // completed desc
-      const dc=(b.completed||0)-(a.completed||0); if(dc!==0) return dc;
-      // finished earlier first (if both finished)
-      const af=a.endedAt||1e18, bf=b.endedAt||1e18;
-      return af-bf;
-    });
-
-    const top = Number(topN.value||12);
-    const show = (viewMode.value==="full") ? players : players.slice(0, top);
-
-    lbBody.innerHTML = show.map((p, idx)=>{
-      const st = p.status || "playing";
-      const stClass = st==="finished" ? "ok" : st==="playing" ? "warn" : "bad";
-      const done = `${p.completed||0}/10`;
-      return `<tr>
-        <td class="rank">${idx+1}</td>
-        <td>${escapeHtml(p.name||"(no name)")}</td>
-        <td class="${stClass}">${escapeHtml(st)}</td>
-        <td class="score">${p.score||0}</td>
-        <td>${done}</td>
-      </tr>`;
-    }).join("");
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  }
 </script>
 </body>
-
 </html>
