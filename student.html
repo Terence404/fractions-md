@@ -82,53 +82,6 @@
   .modal .content{padding:12px 14px}
   select{width:100%; background:rgba(0,0,0,.22); color:var(--ink); border:1px solid var(--line);
          border-radius:12px; padding:10px 12px; outline:none}
-
-  .pickBtn{
-    width:100%;
-    text-align:left;
-    padding:12px 12px;
-    border-radius:14px;
-    border:1px solid rgba(234,240,255,.16);
-    background:rgba(0,0,0,.20);
-    color:var(--ink);
-    font-weight:800;
-    cursor:pointer;
-  }
-  .picked{margin-top:8px; opacity:.9}
-  .rosterModal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:14px;
-    background:rgba(0,0,0,.60); backdrop-filter: blur(6px); z-index:9999;}
-  .rosterBox{max-width:720px; width:100%; max-height:86vh; display:flex; flex-direction:column;
-    background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));
-    border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); overflow:hidden}
-  .rosterHead{padding:12px 14px; background:rgba(0,0,0,.18); border-bottom:1px solid var(--line);
-    display:flex; align-items:center; justify-content:space-between; gap:10px;}
-  .rosterHead strong{font-size:16px}
-  .rosterBody{padding:12px 14px; overflow:auto; flex:1 1 auto}
-  .searchRow{display:flex; gap:10px; align-items:center; margin-bottom:10px}
-  .searchRow input{
-    width:100%;
-    padding:10px 12px;
-    border-radius:14px;
-    border:1px solid rgba(234,240,255,.16);
-    background:rgba(0,0,0,.20);
-    color:var(--ink);
-    outline:none;
-  }
-  .nameGrid{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
-  @media (max-width:700px){ .nameGrid{grid-template-columns:1fr} }
-  .nameBtn{
-    width:100%;
-    text-align:left;
-    padding:12px 12px;
-    border-radius:14px;
-    border:1px solid rgba(234,240,255,.16);
-    background:rgba(0,0,0,.18);
-    color:var(--ink);
-    cursor:pointer;
-    font-weight:800;
-  }
-  .nameBtn:active{transform:translateY(1px)}
-
 </style>
 </head>
 <body>
@@ -215,8 +168,7 @@
     <div class="content">
       <div class="pill">Session: <strong id="sidLabel">—</strong></div>
       <p class="mini">Select your name. Please choose your own name only.</p>
-      <button id="namePickBtn" type="button" class="pickBtn">Choose name</button>
-      <div class="picked mini" id="pickedName">No name selected</div>
+      <select id="nameSelect" disabled><option>Loading…</option></select>
       <div class="btnRow" style="margin-top:12px">
         <button id="joinBtn" class="primary" disabled>Join</button>
       </div>
@@ -305,18 +257,15 @@
 
   const joinModal = $("joinModal");
   const helpModal = $("helpModal");
-  const namePickBtn = $("namePickBtn");
-  const pickedName = $("pickedName");
-  const rosterModal = $("rosterModal");
-  const closeRoster = $("closeRoster");
-  const nameSearch = $("nameSearch");
-  const clearSearch = $("clearSearch");
-  const nameGrid = $("nameGrid");
-  const rosterHint = $("rosterHint");
-  let selectedName = "";
-
+  const nameSelect = $("nameSelect");
+  nameSelect.addEventListener("change", updateJoinEnabled);
   const joinBtn = $("joinBtn");
-  const joinHint = $("joinHint");
+  
+  function updateJoinEnabled(){
+    // Enable only when signed-in (uid) and a name is selected
+    joinBtn.disabled = !(uid && nameSelect && nameSelect.value);
+  }
+const joinHint = $("joinHint");
 
   const roundLeftEl = $("roundLeft");
   const qIndexEl = $("qIndex");
@@ -768,7 +717,9 @@
   onAuthStateChanged(auth, async (user)=>{
     if(!user) return;
     uid = user.uid;
-    statusText.textContent = "Connected";
+    
+    updateJoinEnabled();
+statusText.textContent = "Connected";
 
     if(!sid) return;
 
@@ -783,31 +734,13 @@
     session = snap.val();
     wrongPenalty = Number(session.wrongPenalty||20);
 
-    // populate roster (custom picker)
+    // populate roster
     const roster = (session.roster||[]).slice();
-    window.__roster = roster; // for debugging if needed
-    function renderRoster(filterText){
-      const q = (filterText||"").trim().toLowerCase();
-      const list = q ? roster.filter(n=>String(n).toLowerCase().includes(q)) : roster;
-      rosterHint.textContent = list.length ? "" : "No matches.";
-      nameGrid.innerHTML = list.map(n=>`<button type="button" class="nameBtn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("");
-    }
-    renderRoster("");
-
-    // reset selection each session load
-    selectedName = roster[0] ? String(roster[0]) : "";
-    pickedName.textContent = selectedName ? selectedName : "No name selected";
-    namePickBtn.textContent = selectedName ? selectedName : "Choose name";
-
-    joinHint.textContent = `Time limit: ${Math.round((session.timeLimitSec||720)/60)} min. Wrong penalty: ${wrongPenalty} pts.`;
-
-    // Join enabled if authed (and a name is selected)
-    joinBtn.disabled = !(user && selectedName);
-
-    btnStart.disabled = true; // until joined
-    btnSubmit.disabled = true;
-
-    btnStart.disabled = true; // until joined
+    nameSelect.innerHTML = `<option value="" selected disabled>Tap to choose your name…</option>` + roster.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    nameSelect.disabled = false;
+joinHint.textContent = `Time limit: ${Math.round((session.timeLimitSec||720)/60)} min. Wrong penalty: ${wrongPenalty} pts.`;
+    updateJoinEnabled();
+btnStart.disabled = true; // until joined
     btnSubmit.disabled = true;
 
     // Optional: listen for session changes (time limit, etc.)
@@ -1033,85 +966,9 @@
   buildKeypad();
   setFocus("num");
   initPad();
-
-
-  // ---- Custom roster picker interactions (iPad friendly) ----
-  function openRoster(){
-    if(!window.__roster || !window.__roster.length){
-      return;
-    }
-    rosterModal.style.display = "flex";
-    rosterModal.setAttribute("aria-hidden","false");
-    nameSearch.value = "";
-    rosterHint.textContent = "";
-    // Re-render full list
-    const roster = window.__roster;
-    nameGrid.innerHTML = roster.map(n=>`<button type="button" class="nameBtn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("");
-    // Focus search if possible
-    setTimeout(()=>{ try{ nameSearch.focus(); }catch{} }, 50);
-  }
-  function closeRosterModal(){
-    rosterModal.style.display = "none";
-    rosterModal.setAttribute("aria-hidden","true");
-  }
-
-  namePickBtn.addEventListener("click", openRoster);
-  closeRoster.addEventListener("click", closeRosterModal);
-  rosterModal.addEventListener("click", (e)=>{ if(e.target === rosterModal) closeRosterModal(); });
-  clearSearch.addEventListener("click", ()=>{
-    nameSearch.value = "";
-    const roster = window.__roster || [];
-    nameGrid.innerHTML = roster.map(n=>`<button type="button" class="nameBtn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("");
-    rosterHint.textContent = "";
-    try{ nameSearch.focus(); }catch{}
-  });
-
-  nameSearch.addEventListener("input", ()=>{
-    const roster = window.__roster || [];
-    const q = (nameSearch.value||"").trim().toLowerCase();
-    const list = q ? roster.filter(n=>String(n).toLowerCase().includes(q)) : roster;
-    rosterHint.textContent = list.length ? "" : "No matches.";
-    nameGrid.innerHTML = list.map(n=>`<button type="button" class="nameBtn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("");
-  });
-
-  nameGrid.addEventListener("click", (e)=>{
-    const btn = e.target.closest(".nameBtn");
-    if(!btn) return;
-    selectedName = btn.getAttribute("data-name") || "";
-    // data-name contains escaped HTML entities; decode by using a textarea trick
-    const ta = document.createElement("textarea");
-    ta.innerHTML = selectedName;
-    selectedName = ta.value;
-
-    pickedName.textContent = selectedName;
-    namePickBtn.textContent = selectedName;
-    closeRosterModal();
-
-    joinBtn.disabled = !(user && selectedName);
-  });
-
 </script>
 
-<div id="buildTag" style="position:fixed;right:10px;bottom:8px;font-size:12px;color:rgba(234,240,255,.25)">build STUDENT-COMPAT-2</div>
-
-<!-- Roster picker modal (custom, iPad-friendly) -->
-<div class="rosterModal" id="rosterModal" aria-hidden="true">
-  <div class="rosterBox">
-    <div class="rosterHead">
-      <strong>Choose your name</strong>
-      <button id="closeRoster" class="secondary" type="button">Close</button>
-    </div>
-    <div class="rosterBody">
-      <div class="searchRow">
-        <input id="nameSearch" type="text" placeholder="Search name…" autocomplete="off" />
-        <button id="clearSearch" class="secondary" type="button">Clear</button>
-      </div>
-      <div class="mini" id="rosterHint"></div>
-      <div class="nameGrid" id="nameGrid"></div>
-    </div>
-  </div>
-</div>
-
+<div id="buildTag" style="position:fixed;right:10px;bottom:8px;font-size:12px;color:rgba(234,240,255,.25)">build STUDENT-COMPAT-3</div>
 </body>
 
 </html>
