@@ -753,44 +753,72 @@
     nameSelect.disabled = true;
     btnJoin.disabled = true;
 
-    // Load once, then also listen for roster updates (helps if teacher just started session)
-    const pubRef = ref(db, `sessions/${sid}/public`);
-    const snap = await get(pubRef);
-    if(!snap.exists()){
-      joinHint.textContent = "Session not found. Please rescan the QR code.";
-      nameSelect.innerHTML = `<option value="">(Session not found)</option>`;
+    if(!sid){
+      joinHint.textContent = "Missing session code. Please rescan the QR code.";
+      nameSelect.innerHTML = `<option value="">(Missing session)</option>`;
       return;
     }
-    session = snap.val();
-    wrongPenalty = Number(session.wrongPenalty || 20);
 
-    onValue(pubRef, (s)=>{
-      if(!s.exists()) return;
-      session = s.val();
-      wrongPenalty = Number(session.wrongPenalty || wrongPenalty);
-      const roster = Array.isArray(session.roster) ? session.roster : [];
-      if(roster.length){
-        const options = [`<option value="">Select your name…</option>`]
-          .concat(roster.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`));
-        nameSelect.innerHTML = options.join("");
-        nameSelect.disabled = false;
-        joinHint.textContent = "Select your name, then press Join.";
-      }else{
-        nameSelect.innerHTML = `<option value="">(Roster not loaded)</option>`;
-        nameSelect.disabled = true;
-        joinHint.textContent = "Roster not loaded. Ask your teacher to restart the session.";
+    const pubRef = ref(db, `sessions/${sid}/public`);
+
+    try{
+      const snap = await get(pubRef);
+      if(!snap.exists()){
+        joinHint.textContent = "Session not found. Please rescan the QR code.";
+        nameSelect.innerHTML = `<option value="">(Session not found)</option>`;
+        return;
       }
-      btnJoin.disabled = true;
-    });
+      session = snap.val();
+      wrongPenalty = Number(session.wrongPenalty || 20);
 
-    // Setup overall time based on teacher config
-    const total = Number(session.timeLimitSec || 720);
-    overallEndMs = Date.now() + total*1000;
+      // Setup overall time based on teacher config (best-effort)
+      const total = Number(session.timeLimitSec || 720);
+      overallEndMs = Date.now() + total*1000;
+
+      // Listen for roster updates (helps if teacher just started session)
+      onValue(pubRef, (s)=>{
+        if(!s.exists()) return;
+        session = s.val();
+        wrongPenalty = Number(session.wrongPenalty || wrongPenalty);
+        const roster = Array.isArray(session.roster) ? session.roster : [];
+
+        if(roster.length){
+          const options = [`<option value="">Select your name…</option>`]
+            .concat(roster.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`));
+          nameSelect.innerHTML = options.join("");
+          nameSelect.disabled = false;
+          joinHint.textContent = "Select your name, then press Join.";
+        }else{
+          nameSelect.innerHTML = `<option value="">(Roster not loaded yet)</option>`;
+          nameSelect.disabled = true;
+          joinHint.textContent = "Roster not loaded yet. Ask your teacher to (re)start the session.";
+        }
+        btnJoin.disabled = !nameSelect.value;
+      }, (err)=>{
+        console.error(err);
+        joinHint.textContent = "Could not listen for roster (rules/network). Refresh and try again.";
+      });
+
+    }catch(err){
+      console.error(err);
+      const code = err?.code || "";
+      const msg  = err?.message || String(err);
+      if(String(code).includes("permission") || String(msg).toLowerCase().includes("permission")){
+        joinHint.textContent = "Permission error loading roster. If you opened this inside a camera/QR preview browser, tap Share → Open in Safari/Chrome, then try again.";
+      }else{
+        joinHint.textContent = "Error loading session. Please refresh and try again.";
+      }
+      nameSelect.innerHTML = `<option value="">(Could not load)</option>`;
+      nameSelect.disabled = true;
+      btnJoin.disabled = true;
+      authStatus.textContent = "Problem loading session";
+    }
   }
 
   nameSelect.addEventListener("change", ()=>{
     btnJoin.disabled = !nameSelect.value;
   });
+
 
   btnRefresh.addEventListener("click", ()=>{
     location.reload();
@@ -812,6 +840,16 @@
       authStatus.textContent = "Signing in…";
     }
   });
+
+  // If anon sign-in hangs (common in some in-app QR/camera browsers), show a helpful hint.
+  let authWatchdogFired = false;
+  setTimeout(()=>{
+    if(uid || authWatchdogFired) return;
+    // Still not signed in after a few seconds
+    authWatchdogFired = true;
+    joinHint.textContent = "If you opened this inside a camera/QR preview browser, tap Share/⋯ → Open in Safari/Chrome, then try again.";
+  }, 5000);
+
 
   signInAnonymously(auth).catch(err=>{
     authStatus.textContent = "Auth error";
