@@ -8,12 +8,10 @@
   :root{
     --bg:#0b1020;
     --card:#111a33;
-    --card2:#0f1730;
     --text:#eaf0ff;
     --muted:rgba(234,240,255,.72);
     --line:rgba(234,240,255,.14);
     --accent:#66d9ff;
-    --good:#66ff99;
     --bad:#ff6b6b;
     --shadow: 0 10px 28px rgba(0,0,0,.35);
     --radius:16px;
@@ -21,15 +19,37 @@
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(1200px 600px at 10% 0%, #1a2a5a 0%, #0b1020 55%, #060914 100%);color:var(--text);}
+
   .layout{
     display:grid;
     grid-template-columns: var(--sidew) 1fr;
     gap:14px;
     height:100vh;
     padding:14px;
+    overflow:hidden;
   }
-  .sidebar{min-width:0}
-  .main{min-width:0}
+  .sidebar{min-width:0; height:100%; overflow:hidden;}
+  .main{min-width:0; height:100%; overflow:hidden;}
+
+  .stack{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    overflow:hidden;
+  }
+  .stack > .card{
+    flex: 0 0 auto;
+  }
+  .stack > .card.joinCard{
+    flex: 1 1 auto;     /* allow Join card to take remaining height */
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .joinCard .body{
+    overflow:auto;      /* if needed, scroll only inside join card, not the whole page */
+  }
 
   .card{
     background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
@@ -62,22 +82,17 @@
     color:var(--text);
     outline:none;
   }
-  textarea{min-height:140px;resize:vertical}
-  .row{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
-  .row3{display:grid;grid-template-columns: 1fr 1fr 1fr; gap:10px}
-  .pill{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 10px; border-radius:999px;
-    border:1px solid rgba(234,240,255,.16);
-    background:rgba(0,0,0,.18);
-    font-size:12px; color:var(--muted);
+  textarea{
+    resize:vertical;
+    min-height:88px;     /* smaller so page doesn’t become too tall */
+    max-height:140px;
   }
-  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+  .row{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
   .btnRow{display:flex; gap:10px; flex-wrap:wrap}
   button{
     border:0; border-radius:12px;
     padding:10px 12px;
-    font-weight:700;
+    font-weight:800;
     cursor:pointer;
     color:#001018;
     background:var(--accent);
@@ -87,38 +102,47 @@
   button.danger{background:var(--bad); color:#240000}
   button:disabled{opacity:.45; cursor:not-allowed}
   .small{font-size:12px;color:var(--muted)}
-  .muted{color:var(--muted)}
-  .hr{height:1px;background:var(--line); margin:12px 0}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:999px;
+    border:1px solid rgba(234,240,255,.16);
+    background:rgba(0,0,0,.18);
+    font-size:12px; color:var(--muted);
+  }
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
 
-  /* Join area */
-  .joinWrap{display:grid;grid-template-columns: 1fr; gap:10px}
-  .joinCode{font-size:34px;font-weight:900;letter-spacing:1px;margin:2px 0 2px}
+  .hr{height:1px;background:var(--line); margin:10px 0}
+
+  /* Join */
+  .joinCode{font-size:30px;font-weight:900;letter-spacing:1px;margin:0}
   .joinLinkBig{
     word-break:break-all;
-    font-size:18px;
+    font-size:16px;
     line-height:1.25;
     padding:10px 12px;
     border:1px solid rgba(234,240,255,.14);
     border-radius:12px;
     background:rgba(0,0,0,.18);
   }
-  .qrCanvas{
-    width:560px; height:560px;
+  .qrBox{
     background:#fff;
-    border-radius:18px;
-    border:10px solid #fff; /* extra quiet zone */
+    border-radius:16px;
+    border:10px solid #fff; /* quiet zone */
     box-shadow: 0 12px 24px rgba(0,0,0,.35);
-    display:block;
+    width:100%;
+    max-width: 360px;   /* prevents it from being too huge */
+    margin: 8px 0;
+    overflow:hidden;
   }
-  .qrHint{
-    font-size:12px;color:var(--muted);
-    margin-top:6px;
+  canvas.qr{
+    display:block;
+    width:100%;
+    height:auto;        /* CSS size will match, but we also set actual canvas pixels in JS to avoid blur */
+    background:#fff;
   }
 
   /* Leaderboard */
-  .topBar{
-    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-  }
+  .topBar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .toggle{
     display:inline-flex; border:1px solid rgba(234,240,255,.16);
     border-radius:999px; overflow:hidden;
@@ -130,7 +154,7 @@
     border-radius:0;
     background:transparent;
     color:var(--muted);
-    font-weight:800;
+    font-weight:900;
   }
   .toggle button.active{
     background:rgba(102,217,255,.18);
@@ -140,9 +164,8 @@
   th,td{padding:10px 8px; border-bottom:1px solid rgba(234,240,255,.10); text-align:left}
   th{color:var(--muted); font-weight:700; font-size:12px}
   .rank{width:44px; color:var(--muted)}
-  .score{width:90px; font-weight:900}
   .right{text-align:right}
-  .nameCell{font-weight:800}
+  .score{font-weight:900}
   .offline{opacity:.55}
 
   /* Collapse */
@@ -153,98 +176,164 @@
     box-shadow:none;
     padding:8px 10px;
     border-radius:12px;
-    font-weight:800;
+    font-weight:900;
   }
-  body.collapsed{ }
-  body.collapsed .layout{ grid-template-columns: 0 1fr; }
+  body.collapsed .layout{ grid-template-columns: 1fr; }
   body.collapsed .sidebar{ display:none; }
 
-  /* Responsive */
+  /* Floating restore button (always available when collapsed) */
+  .restoreBtn{
+    position:fixed;
+    top:12px;
+    left:12px;
+    z-index:9999;
+    display:none;
+    background:rgba(234,240,255,.14);
+    border:1px solid rgba(234,240,255,.20);
+    color:var(--text);
+    box-shadow:var(--shadow);
+  }
+  body.collapsed .restoreBtn{ display:inline-flex; }
+
+  /* QR modal */
+  .modal{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.62);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+    z-index:9998;
+  }
+  .modal.show{ display:flex; }
+  .modalBox{
+    width:min(860px, 96vw);
+    background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    border:1px solid var(--line);
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .modalHead{
+    padding:12px 14px;
+    background:rgba(0,0,0,.18);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    font-weight:900;
+  }
+  .modalBody{padding:14px}
+  .qrBigWrap{
+    display:flex;
+    justify-content:center;
+  }
+  .qrBigBox{
+    background:#fff;
+    border-radius:18px;
+    border:14px solid #fff;
+    box-shadow: 0 14px 28px rgba(0,0,0,.35);
+    overflow:hidden;
+  }
+  canvas.qrBig{
+    display:block;
+    width:720px;
+    height:720px;
+    background:#fff;
+  }
+  @media (max-width: 820px){
+    canvas.qrBig{ width:520px; height:520px; }
+  }
+  @media (max-width: 580px){
+    canvas.qrBig{ width:360px; height:360px; }
+  }
+
   @media (max-width: 980px){
     :root{ --sidew: 100%; }
-    .layout{grid-template-columns: 1fr; height:auto}
-    .qrCanvas{ width:420px; height:420px; }
-  }
-  @media (max-width: 520px){
-    .qrCanvas{ width:320px; height:320px; }
+    .layout{grid-template-columns: 1fr; height:auto; overflow:auto}
+    .sidebar,.main{height:auto}
+    .stack{height:auto}
   }
 </style>
 </head>
 
 <body>
+
+<button class="collapseBtn restoreBtn" id="btnRestore">Show setup</button>
+
 <div class="layout">
   <div class="sidebar">
-    <div class="card">
-      <h2>
-        <span>Session setup</span>
-        <button class="collapseBtn" id="btnCollapse">Hide panel</button>
-      </h2>
-      <div class="body grid">
-        <div class="pill">Status: <span id="authStatus" class="mono">Signing in…</span></div>
-        <div class="pill">Session: <span id="sidPill" class="mono">—</span></div>
+    <div class="stack">
+      <div class="card">
+        <h2>
+          <span>Session setup</span>
+          <button class="collapseBtn" id="btnCollapse">Hide panel</button>
+        </h2>
+        <div class="body grid">
+          <div class="pill">Status: <span id="authStatus" class="mono">Signing in…</span></div>
+          <div class="pill">Session: <span id="sidPill" class="mono">—</span></div>
 
-        <label>Class roster (one name per line)</label>
-        <textarea id="roster" placeholder="e.g.
+          <label>Class roster (one name per line)</label>
+          <textarea id="roster" placeholder="e.g.
 Alicia Tan
 Ben Lim
 ..."></textarea>
 
-        <div class="btnRow">
-          <button class="secondary" id="btnSaveRoster" disabled>Save roster</button>
-          <button class="secondary" id="btnLoadRoster" disabled>Reload roster</button>
-        </div>
-
-        <div class="row">
-          <div>
-            <label>Time limit (minutes)</label>
-            <input id="timeLimit" type="number" min="5" max="20" step="1" value="12" />
+          <div class="btnRow">
+            <button class="secondary" id="btnSaveRoster" disabled>Save roster</button>
+            <button class="secondary" id="btnLoadRoster" disabled>Reload roster</button>
           </div>
-          <div>
-            <label>Wrong answer penalty (points)</label>
-            <input id="wrongPenalty" type="number" min="0" max="120" step="5" value="20" />
-          </div>
-        </div>
 
-        <div class="row">
-          <div>
-            <label>Leaderboard size (Top N)</label>
-            <input id="topN" type="number" min="5" max="60" step="1" value="12" />
+          <div class="row">
+            <div>
+              <label>Time limit (minutes)</label>
+              <input id="timeLimit" type="number" min="5" max="20" step="1" value="12" />
+            </div>
+            <div>
+              <label>Wrong answer penalty (points)</label>
+              <input id="wrongPenalty" type="number" min="0" max="120" step="5" value="20" />
+            </div>
           </div>
-          <div>
-            <label>Session code length</label>
-            <select id="codeLen">
-              <option value="5">5</option>
-              <option value="6" selected>6</option>
-              <option value="7">7</option>
-            </select>
+
+          <div class="row">
+            <div>
+              <label>Leaderboard size (Top N)</label>
+              <input id="topN" type="number" min="5" max="60" step="1" value="12" />
+            </div>
+            <div>
+              <label>Session code length</label>
+              <select id="codeLen">
+                <option value="5">5</option>
+                <option value="6" selected>6</option>
+                <option value="7">7</option>
+              </select>
+            </div>
           </div>
-        </div>
 
-        <div class="btnRow">
-          <button id="btnStart" disabled>Start new session</button>
-          <button class="danger" id="btnEnd" disabled>End session</button>
-        </div>
+          <div class="btnRow">
+            <button id="btnStart" disabled>Start new session</button>
+            <button class="danger" id="btnEnd" disabled>End session</button>
+          </div>
 
-        <div class="small" id="setupHint"></div>
+          <div class="small" id="setupHint"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="card" style="margin-top:14px">
-      <h2>Join</h2>
-      <div class="body">
-        <div class="joinWrap">
+      <div class="card joinCard">
+        <h2>Join</h2>
+        <div class="body">
           <div class="small">Session code</div>
           <div id="sessionCode" class="mono joinCode">—</div>
 
-          <canvas id="qr" class="qrCanvas" width="560" height="560" aria-label="QR code"></canvas>
-          <div class="qrHint">Students scan this QR, then select their name and press Join.</div>
-
-          <div class="small" style="margin-top:8px">Join link</div>
-          <div id="joinLink" class="mono joinLinkBig">—</div>
+          <div class="qrBox">
+            <canvas id="qrSmall" class="qr" width="320" height="320" aria-label="QR code"></canvas>
+          </div>
 
           <div class="btnRow">
-            <button class="secondary" id="btnCopy" disabled>Copy join link</button>
+            <button class="secondary" id="btnQrFull" disabled>Full-screen QR</button>
+            <button class="secondary" id="btnCopy" disabled>Copy link</button>
           </div>
+
+          <div class="small" style="margin-top:10px">Join link</div>
+          <div id="joinLink" class="mono joinLinkBig">—</div>
 
           <div class="small" id="joinHint"></div>
         </div>
@@ -253,26 +342,23 @@ Ben Lim
   </div>
 
   <div class="main">
-    <div class="card" style="height:100%">
+    <div class="card" style="height:100%; display:flex; flex-direction:column; overflow:hidden;">
       <h2>
         <span>Live leaderboard</span>
         <span class="small" id="lbStatus">—</span>
       </h2>
-      <div class="body">
+      <div class="body" style="flex:1 1 auto; overflow:hidden;">
         <div class="topBar">
           <div class="toggle" aria-label="Score mode toggle">
             <button id="modeCurrent" class="active" type="button">Current</button>
             <button id="modeBest" type="button">Best</button>
           </div>
-
-          <div class="small">
-            Tip: If you want the full list, set Top N to 38.
-          </div>
+          <div class="small">Tip: If you want the full list, set Top N to 38.</div>
         </div>
 
         <div class="hr"></div>
 
-        <div style="overflow:auto; max-height: calc(100vh - 190px);">
+        <div style="overflow:auto; height: calc(100vh - 190px);">
           <table>
             <thead>
               <tr>
@@ -288,8 +374,25 @@ Ben Lim
             </tbody>
           </table>
         </div>
-
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Full-screen QR modal -->
+<div class="modal" id="qrModal" aria-hidden="true">
+  <div class="modalBox">
+    <div class="modalHead">
+      <span>Scan to join</span>
+      <button class="secondary" id="btnCloseModal" type="button">Close</button>
+    </div>
+    <div class="modalBody">
+      <div class="qrBigWrap">
+        <div class="qrBigBox">
+          <canvas id="qrBig" class="qrBig" width="720" height="720"></canvas>
+        </div>
+      </div>
+      <div class="small" style="margin-top:10px" id="modalLink"></div>
     </div>
   </div>
 </div>
@@ -297,11 +400,8 @@ Ben Lim
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import {
-    getDatabase, ref, set, get, update, onValue, off, serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+  import { getDatabase, ref, set, get, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  // --- Firebase config (from your current repo) ---
   const firebaseConfig = {
     apiKey: "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
     authDomain: "multiply-and-divide-fractions.firebaseapp.com",
@@ -312,14 +412,15 @@ Ben Lim
     appId: "1:641613369936:web:8ca6dbc66b015bf9087755"
   };
 
-  // --- DOM helpers ---
   const $ = (id)=>document.getElementById(id);
+
   const authStatus = $("authStatus");
   const rosterTA = $("roster");
   const timeLimit = $("timeLimit");
   const wrongPenalty = $("wrongPenalty");
   const topN = $("topN");
   const codeLen = $("codeLen");
+
   const btnStart = $("btnStart");
   const btnEnd = $("btnEnd");
   const btnCopy = $("btnCopy");
@@ -327,28 +428,37 @@ Ben Lim
   const btnLoadRoster = $("btnLoadRoster");
   const setupHint = $("setupHint");
   const joinHint = $("joinHint");
+
   const sidPill = $("sidPill");
   const sessionCodeEl = $("sessionCode");
   const joinLinkEl = $("joinLink");
   const lbBody = $("lbBody");
   const lbStatus = $("lbStatus");
-  const qrCanvas = $("qr");
+
   const btnCollapse = $("btnCollapse");
+  const btnRestore = $("btnRestore");
+
+  const qrSmall = $("qrSmall");
+  const qrBig = $("qrBig");
+  const btnQrFull = $("btnQrFull");
+  const qrModal = $("qrModal");
+  const btnCloseModal = $("btnCloseModal");
+  const modalLink = $("modalLink");
 
   let app, auth, db;
   let myUid = "";
   let currentSid = "";
-  let scoreMode = "current"; // "current" | "best"
+  let scoreMode = "current";
   let playersUnsub = null;
+  let lastPlayersCache = {};
+  let lastJoinUrl = "";
 
-  // --- Utils ---
   function nowMs(){ return Date.now(); }
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
   }
   function parseRoster(text){
     const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-    // dedupe case-insensitive, preserve order
     const seen = new Set();
     const out = [];
     for(const n of lines){
@@ -358,16 +468,12 @@ Ben Lim
     return out;
   }
   function randCode(len){
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/1/I
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let s="";
-    crypto.getRandomValues(new Uint32Array(len)).forEach(v=>{
-      s += chars[v % chars.length];
-    });
+    crypto.getRandomValues(new Uint32Array(len)).forEach(v=>{ s += chars[v % chars.length]; });
     return s;
   }
-  function fmtLastSeen(ts){
-    if(!ts) return "—";
-    const ms = typeof ts === "number" ? ts : null;
+  function fmtLastSeen(ms){
     if(!ms) return "—";
     const diff = Math.max(0, Math.round((Date.now() - ms)/1000));
     if(diff < 5) return "now";
@@ -378,460 +484,310 @@ Ben Lim
     return h + "h";
   }
 
-  // --- Embedded local QR generator (Nayuki qrcodegen, compacted) ---
-  // Public domain reference: https://www.nayuki.io/page/qr-code-generator-library
+  // ---------- Embedded local QR generator (Nayuki-inspired compact) ----------
   class QrCode {
     static Ecc = { LOW:0, MEDIUM:1, QUARTILE:2, HIGH:3 };
-    constructor(ver, ecl, dataCodewords, mask) {
-      this.version = ver;
-      this.errorCorrectionLevel = ecl;
-      this.size = ver * 4 + 17;
-      this.modules = Array.from({length:this.size}, ()=>Array(this.size).fill(false));
-      this.isFunction = Array.from({length:this.size}, ()=>Array(this.size).fill(false));
+    constructor(ver, ecl, dataCodewords, mask){
+      this.version=ver; this.ecl=ecl; this.size=ver*4+17;
+      this.modules=Array.from({length:this.size}, ()=>Array(this.size).fill(false));
+      this.isFunction=Array.from({length:this.size}, ()=>Array(this.size).fill(false));
       this.drawFunctionPatterns();
-      const allCodewords = this.addEccAndInterleave(dataCodewords);
-      this.drawCodewords(allCodewords);
-      if (mask < 0 || mask > 7) mask = this.getBestMask();
+      const all = this.addEccAndInterleave(dataCodewords);
+      this.drawCodewords(all);
+      if(mask<0 || mask>7) mask=this.getBestMask();
       this.applyMask(mask);
       this.drawFormatBits(mask);
-      this.mask = mask;
+      this.mask=mask;
     }
-    static encodeText(text, ecl) {
-      const segs = QrSegment.makeSegments(text);
-      return QrCode.encodeSegments(segs, ecl);
+    static encodeText(text, ecl){
+      const bytes = new TextEncoder().encode(text);
+      const bb = new BitBuffer();
+      for(const b of bytes) bb.appendBits(b,8);
+      const seg = { modeBits:0b0100, numChars:bytes.length, ccbits:(v)=> (v<=9?8:16), bb };
+      return QrCode.encodeSegments([seg], ecl);
     }
-    static encodeSegments(segs, ecl) {
-      for (let ver = 1; ver <= 20; ver++) {
-        const dataCap = QrCode.getNumDataCodewords(ver, ecl) * 8;
+    static encodeSegments(segs, ecl){
+      for(let ver=1; ver<=20; ver++){
+        const cap = QrCode.getNumDataCodewords(ver,ecl)*8;
         const bb = new BitBuffer();
-        for (const seg of segs) {
-          bb.appendBits(seg.mode.modeBits, 4);
-          bb.appendBits(seg.numChars, seg.mode.numCharCountBits(ver));
-          bb.appendData(seg.bitData);
+        for(const s of segs){
+          bb.appendBits(s.modeBits,4);
+          bb.appendBits(s.numChars, s.ccbits(ver));
+          bb.appendData(s.bb);
         }
-        if (bb.length <= dataCap) {
-          bb.appendBits(0, Math.min(4, dataCap - bb.length));
-          while (bb.length % 8 !== 0) bb.appendBits(0, 1);
-          for (let pad = 0; bb.length < dataCap; pad++) bb.appendBits((pad % 2 === 0) ? 0xEC : 0x11, 8);
-          return new QrCode(ver, ecl, bb.getBytes(), -1);
+        if(bb.length<=cap){
+          bb.appendBits(0, Math.min(4, cap-bb.length));
+          while(bb.length%8!==0) bb.appendBits(0,1);
+          for(let pad=0; bb.length<cap; pad++) bb.appendBits((pad%2===0)?0xEC:0x11,8);
+          return new QrCode(ver,ecl,bb.getBytes(),-1);
         }
       }
-      throw new Error("QR data too long");
+      throw new Error("QR text too long");
     }
-    getModule(x, y) { return this.modules[y][x]; }
+    getModule(x,y){ return this.modules[y][x]; }
 
-    drawFunctionPatterns() {
-      const n = this.size;
-      const drawFinder = (x, y) => {
-        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
-          const xx = x + dx, yy = y + dy;
-          if (0 <= xx && xx < n && 0 <= yy && yy < n) {
-            const dist = Math.max(Math.abs(dx), Math.abs(dy));
-            const val = (dist !== 2 && dist !== 4);
-            this.modules[yy][xx] = val;
-            this.isFunction[yy][xx] = true;
+    static getNumDataCodewords(ver,ecl){
+      const table=[
+        null,
+        [19,16,13,9],[34,28,22,16],[55,44,34,26],[80,64,48,36],[108,86,62,46],
+        [136,108,76,60],[156,124,88,66],[194,154,110,86],[232,182,132,100],[274,216,154,122],
+        [324,254,180,140],[370,290,206,158],[428,334,244,180],[461,365,261,197],[523,415,295,223],
+        [589,453,325,253],[647,507,367,283],[721,563,397,313],[795,627,445,341],[861,669,485,385]
+      ];
+      return table[ver][ecl];
+    }
+    static getEccBlocks(ver,ecl){
+      const t={
+        1:[[7,1],[10,1],[13,1],[17,1]],
+        2:[[10,1],[16,1],[22,1],[28,1]],
+        3:[[15,1],[26,1],[18,2],[22,2]],
+        4:[[20,1],[18,2],[26,2],[16,4]],
+        5:[[26,1],[24,2],[18,4],[22,4]],
+        6:[[18,2],[16,4],[24,4],[28,4]],
+        7:[[20,2],[18,4],[18,6],[26,5]],
+        8:[[24,2],[22,4],[22,6],[26,6]],
+        9:[[30,2],[22,5],[20,8],[24,8]],
+        10:[[18,4],[26,5],[24,8],[28,8]],
+        11:[[20,4],[30,5],[28,8],[24,11]],
+        12:[[24,4],[22,8],[26,10],[28,11]],
+        13:[[26,4],[22,9],[24,12],[22,16]],
+        14:[[30,4],[24,9],[20,16],[24,16]],
+        15:[[22,6],[24,10],[30,12],[24,18]],
+        16:[[24,6],[28,10],[24,17],[30,16]],
+        17:[[28,6],[28,11],[28,16],[28,19]],
+        18:[[30,6],[26,13],[28,18],[28,21]],
+        19:[[28,7],[26,14],[26,21],[26,25]],
+        20:[[28,8],[26,16],[30,20],[28,25]],
+      };
+      const [eccPerBlock,numBlocks] = t[ver][ecl];
+      return {eccPerBlock,numBlocks};
+    }
+
+    drawFunctionPatterns(){
+      const n=this.size;
+      const drawFinder=(x,y)=>{
+        for(let dy=-4;dy<=4;dy++) for(let dx=-4;dx<=4;dx++){
+          const xx=x+dx, yy=y+dy;
+          if(0<=xx&&xx<n&&0<=yy&&yy<n){
+            const dist=Math.max(Math.abs(dx),Math.abs(dy));
+            this.setFn(xx,yy,(dist!==2 && dist!==4));
           }
         }
       };
-      drawFinder(3, 3);
-      drawFinder(n - 4, 3);
-      drawFinder(3, n - 4);
+      drawFinder(3,3); drawFinder(n-4,3); drawFinder(3,n-4);
+      for(let i=0;i<n;i++){ this.setFn(6,i,i%2===0); this.setFn(i,6,i%2===0); }
+      this.setFn(8,n-8,true); // dark module
 
-      // Separators + timing
-      for (let i = 0; i < n; i++) {
-        this.setFunctionModule(6, i, i % 2 === 0);
-        this.setFunctionModule(i, 6, i % 2 === 0);
-      }
-      // Dark module
-      this.setFunctionModule(8, n - 8, true);
-
-      // Alignment patterns
-      const align = QrCode.getAlignmentPatternPositions(this.version);
-      for (const y of align) for (const x of align) {
-        if (!((x === 6 && y === 6) || (x === 6 && y === n - 7) || (x === n - 7 && y === 6))) {
-          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
-            this.setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
-          }
-        }
-      }
-
-      // Reserve format info areas
-      for (let i = 0; i < 9; i++) {
-        this.isFunction[8][i] = true;
-        this.isFunction[i][8] = true;
-      }
-      for (let i = n - 8; i < n; i++) {
-        this.isFunction[8][i] = true;
-        this.isFunction[i][8] = true;
-      }
-      this.isFunction[8][n - 8] = true;
+      // reserve format
+      for(let i=0;i<9;i++){ this.isFunction[8][i]=true; this.isFunction[i][8]=true; }
+      for(let i=n-8;i<n;i++){ this.isFunction[8][i]=true; this.isFunction[i][8]=true; }
+      this.isFunction[8][n-8]=true;
     }
-    setFunctionModule(x, y, val) {
-      this.modules[y][x] = val;
-      this.isFunction[y][x] = true;
-    }
+    setFn(x,y,v){ this.modules[y][x]=v; this.isFunction[y][x]=true; }
 
-    drawCodewords(data) {
-      const n = this.size;
-      let i = 0;
-      for (let right = n - 1; right >= 1; right -= 2) {
-        if (right === 6) right--;
-        for (let vert = 0; vert < n; vert++) {
-          const y = ((right + 1) & 2) === 0 ? (n - 1 - vert) : vert;
-          for (let j = 0; j < 2; j++) {
-            const x = right - j;
-            if (this.isFunction[y][x]) continue;
-            let bit = false;
-            if (i < data.length * 8) bit = ((data[i >>> 3] >>> (7 - (i & 7))) & 1) !== 0;
-            this.modules[y][x] = bit;
+    drawCodewords(data){
+      const n=this.size; let i=0;
+      for(let right=n-1; right>=1; right-=2){
+        if(right===6) right--;
+        for(let vert=0; vert<n; vert++){
+          const y = ((right+1)&2)===0 ? (n-1-vert) : vert;
+          for(let j=0;j<2;j++){
+            const x=right-j;
+            if(this.isFunction[y][x]) continue;
+            let bit=false;
+            if(i < data.length*8) bit = ((data[i>>>3] >>> (7-(i&7))) & 1) !== 0;
+            this.modules[y][x]=bit;
             i++;
           }
         }
       }
     }
-
-    applyMask(mask) {
-      const n = this.size;
-      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-        if (this.isFunction[y][x]) continue;
-        let invert = false;
-        switch (mask) {
-          case 0: invert = ((x + y) % 2 === 0); break;
-          case 1: invert = (y % 2 === 0); break;
-          case 2: invert = (x % 3 === 0); break;
-          case 3: invert = ((x + y) % 3 === 0); break;
-          case 4: invert = (((y >>> 1) + Math.floor(x / 3)) % 2 === 0); break;
-          case 5: invert = ((x * y) % 2 + (x * y) % 3 === 0); break;
-          case 6: invert = ((((x * y) % 2 + (x * y) % 3) % 2) === 0); break;
-          case 7: invert = ((((x + y) % 2 + (x * y) % 3) % 2) === 0); break;
+    applyMask(mask){
+      const n=this.size;
+      for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+        if(this.isFunction[y][x]) continue;
+        let inv=false;
+        switch(mask){
+          case 0: inv=((x+y)%2===0); break;
+          case 1: inv=(y%2===0); break;
+          case 2: inv=(x%3===0); break;
+          case 3: inv=((x+y)%3===0); break;
+          case 4: inv=(((y>>>1)+Math.floor(x/3))%2===0); break;
+          case 5: inv=((x*y)%2 + (x*y)%3===0); break;
+          case 6: inv=((((x*y)%2 + (x*y)%3)%2)===0); break;
+          case 7: inv=((((x+y)%2 + (x*y)%3)%2)===0); break;
         }
-        if (invert) this.modules[y][x] = !this.modules[y][x];
+        if(inv) this.modules[y][x]=!this.modules[y][x];
       }
     }
+    drawFormatBits(mask){
+      const eclBits=[1,0,3,2][this.ecl];
+      const data=(eclBits<<3)|mask;
+      let rem=data;
+      for(let i=0;i<10;i++) rem=(rem<<1)^(((rem>>>9)&1)*0x537);
+      const bits=((data<<10)|rem)^0x5412;
+      const n=this.size;
 
-    drawFormatBits(mask) {
-      const eclBits = [1,0,3,2][this.errorCorrectionLevel]; // L,M,Q,H mapping to spec bits
-      const data = (eclBits << 3) | mask;
-      let rem = data;
-      for (let i = 0; i < 10; i++) rem = (rem << 1) ^ (((rem >>> 9) & 1) * 0x537);
-      const bits = ((data << 10) | rem) ^ 0x5412;
+      for(let i=0;i<=5;i++) this.setFn(8,i,((bits>>>i)&1)!==0);
+      this.setFn(8,7,((bits>>>6)&1)!==0);
+      this.setFn(8,8,((bits>>>7)&1)!==0);
+      this.setFn(7,8,((bits>>>8)&1)!==0);
+      for(let i=9;i<15;i++) this.setFn(14-i,8,((bits>>>i)&1)!==0);
 
-      const n = this.size;
-      for (let i = 0; i <= 5; i++) this.setFunctionModule(8, i, ((bits >>> i) & 1) !== 0);
-      this.setFunctionModule(8, 7, ((bits >>> 6) & 1) !== 0);
-      this.setFunctionModule(8, 8, ((bits >>> 7) & 1) !== 0);
-      this.setFunctionModule(7, 8, ((bits >>> 8) & 1) !== 0);
-      for (let i = 9; i < 15; i++) this.setFunctionModule(14 - i, 8, ((bits >>> i) & 1) !== 0);
-
-      for (let i = 0; i < 8; i++) this.setFunctionModule(n - 1 - i, 8, ((bits >>> i) & 1) !== 0);
-      for (let i = 8; i < 15; i++) this.setFunctionModule(8, n - 15 + i, ((bits >>> i) & 1) !== 0);
-      this.setFunctionModule(8, n - 8, true);
+      for(let i=0;i<8;i++) this.setFn(n-1-i,8,((bits>>>i)&1)!==0);
+      for(let i=8;i<15;i++) this.setFn(8,n-15+i,((bits>>>i)&1)!==0);
+      this.setFn(8,n-8,true);
     }
-
-    getBestMask() {
-      let bestMask = 0, bestPenalty = Infinity;
-      for (let mask = 0; mask < 8; mask++) {
-        const copy = this.clone();
-        copy.applyMask(mask);
-        copy.drawFormatBits(mask);
-        const p = copy.getPenaltyScore();
-        if (p < bestPenalty) { bestPenalty = p; bestMask = mask; }
+    getBestMask(){
+      let best=0, bestP=1e18;
+      for(let m=0;m<8;m++){
+        const c=this.clone();
+        c.applyMask(m); c.drawFormatBits(m);
+        const p=c.penalty();
+        if(p<bestP){bestP=p; best=m;}
       }
-      return bestMask;
+      return best;
     }
-    clone() {
-      const qr = Object.create(QrCode.prototype);
-      qr.version = this.version;
-      qr.errorCorrectionLevel = this.errorCorrectionLevel;
-      qr.size = this.size;
-      qr.mask = this.mask;
-      qr.modules = this.modules.map(r=>r.slice());
-      qr.isFunction = this.isFunction.map(r=>r.slice());
-      qr.setFunctionModule = this.setFunctionModule;
-      qr.applyMask = this.applyMask;
-      qr.drawFormatBits = this.drawFormatBits;
-      qr.getPenaltyScore = this.getPenaltyScore;
-      qr.clone = this.clone;
-      return qr;
+    clone(){
+      const q=Object.create(QrCode.prototype);
+      q.version=this.version; q.ecl=this.ecl; q.size=this.size;
+      q.modules=this.modules.map(r=>r.slice());
+      q.isFunction=this.isFunction.map(r=>r.slice());
+      q.setFn=this.setFn; q.applyMask=this.applyMask; q.drawFormatBits=this.drawFormatBits;
+      q.penalty=this.penalty; q.clone=this.clone; q.drawCodewords=this.drawCodewords;
+      return q;
     }
-
-    getPenaltyScore() {
-      const n = this.size;
-      let penalty = 0;
-
-      // Adjacent modules in row/col
-      for (let y = 0; y < n; y++) {
-        let runColor = this.modules[y][0], runLen = 1;
-        for (let x = 1; x < n; x++) {
-          const c = this.modules[y][x];
-          if (c === runColor) runLen++;
-          else { if (runLen >= 5) penalty += 3 + (runLen - 5); runColor = c; runLen = 1; }
+    penalty(){
+      const n=this.size;
+      let pen=0;
+      // runs
+      for(let y=0;y<n;y++){
+        let run=this.modules[y][0], len=1;
+        for(let x=1;x<n;x++){
+          const c=this.modules[y][x];
+          if(c===run) len++;
+          else { if(len>=5) pen += 3+(len-5); run=c; len=1; }
         }
-        if (runLen >= 5) penalty += 3 + (runLen - 5);
+        if(len>=5) pen += 3+(len-5);
       }
-      for (let x = 0; x < n; x++) {
-        let runColor = this.modules[0][x], runLen = 1;
-        for (let y = 1; y < n; y++) {
-          const c = this.modules[y][x];
-          if (c === runColor) runLen++;
-          else { if (runLen >= 5) penalty += 3 + (runLen - 5); runColor = c; runLen = 1; }
+      for(let x=0;x<n;x++){
+        let run=this.modules[0][x], len=1;
+        for(let y=1;y<n;y++){
+          const c=this.modules[y][x];
+          if(c===run) len++;
+          else { if(len>=5) pen += 3+(len-5); run=c; len=1; }
         }
-        if (runLen >= 5) penalty += 3 + (runLen - 5);
+        if(len>=5) pen += 3+(len-5);
       }
-
-      // 2x2 blocks
-      for (let y = 0; y < n - 1; y++) for (let x = 0; x < n - 1; x++) {
-        const c = this.modules[y][x];
-        if (c === this.modules[y][x+1] && c === this.modules[y+1][x] && c === this.modules[y+1][x+1]) penalty += 3;
+      // 2x2
+      for(let y=0;y<n-1;y++) for(let x=0;x<n-1;x++){
+        const c=this.modules[y][x];
+        if(c===this.modules[y][x+1] && c===this.modules[y+1][x] && c===this.modules[y+1][x+1]) pen += 3;
       }
-
-      // Finder-like patterns in rows/cols
-      const pattern = [true,false,true,true,true,false,true];
-      const hasPattern = (arr, i) => pattern.every((v,k)=>arr[i+k]===v);
-      for (let y = 0; y < n; y++) {
-        const row = this.modules[y];
-        for (let x = 0; x <= n - 7; x++) if (hasPattern(row, x)) penalty += 40;
-      }
-      for (let x = 0; x < n; x++) {
-        const col = this.modules.map(r=>r[x]);
-        for (let y = 0; y <= n - 7; y++) if (hasPattern(col, y)) penalty += 40;
-      }
-
-      // Balance
-      let dark = 0;
-      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (this.modules[y][x]) dark++;
-      const total = n * n;
-      const k = Math.abs(dark * 20 - total * 10) / total;
-      penalty += Math.floor(k) * 10;
-
-      return penalty;
+      return pen;
     }
+    addEccAndInterleave(data){
+      const {eccPerBlock,numBlocks}=QrCode.getEccBlocks(this.version,this.ecl);
+      const dataLen=data.length;
+      const shortLen=Math.floor(dataLen/numBlocks);
+      const numLong=dataLen%numBlocks;
 
-    addEccAndInterleave(data) {
-      const ver = this.version;
-      const ecl = this.errorCorrectionLevel;
-      const blocks = QrCode.getEccBlocks(ver, ecl);
-      const numBlocks = blocks.numBlocks;
-      const eccPerBlock = blocks.eccPerBlock;
-
-      // Split data into blocks
-      const dataLen = data.length;
-      const shortBlockLen = Math.floor(dataLen / numBlocks);
-      const numLongBlocks = dataLen % numBlocks;
-
-      const dataBlocks = [];
-      let k = 0;
-      for (let i = 0; i < numBlocks; i++) {
-        const len = shortBlockLen + (i < numLongBlocks ? 1 : 0);
-        dataBlocks.push(data.slice(k, k + len));
-        k += len;
+      const blocks=[]; let k=0;
+      for(let b=0;b<numBlocks;b++){
+        const len=shortLen+(b<numLong?1:0);
+        blocks.push(data.slice(k,k+len));
+        k+=len;
       }
+      const gen=ReedSolomon.get(eccPerBlock);
+      const eccBlocks=blocks.map(bl=>gen.rem(bl));
 
-      const gen = ReedSolomonGenerator.get(eccPerBlock);
-      const eccBlocks = dataBlocks.map(b => gen.getRemainder(b));
-
-      // Interleave
-      const out = [];
-      const maxDataLen = shortBlockLen + 1;
-      for (let i = 0; i < maxDataLen; i++) {
-        for (let b = 0; b < numBlocks; b++) {
-          if (i < dataBlocks[b].length) out.push(dataBlocks[b][i]);
-        }
-      }
-      for (let i = 0; i < eccPerBlock; i++) {
-        for (let b = 0; b < numBlocks; b++) out.push(eccBlocks[b][i]);
-      }
+      const out=[];
+      const maxLen=shortLen+1;
+      for(let i=0;i<maxLen;i++) for(const bl of blocks) if(i<bl.length) out.push(bl[i]);
+      for(let i=0;i<eccPerBlock;i++) for(const eb of eccBlocks) out.push(eb[i]);
       return out;
     }
-
-    static getAlignmentPatternPositions(ver) {
-      if (ver === 1) return [];
-      const num = Math.floor(ver / 7) + 2;
-      const step = (ver === 32) ? 26 : Math.ceil((ver*4 + 17 - 13) / (num - 1) / 2) * 2;
-      const res = [6];
-      for (let i = 0; i < num - 2; i++) res.push(ver*4 + 17 - 7 - i*step);
-      res.push(ver*4 + 17 - 7);
-      return res;
-    }
-
-    static getNumDataCodewords(ver, ecl) {
-      // Total codewords = (ver*4+17)^2 minus function patterns, etc. Using table subset (ver 1..20)
-      // Precomputed from Nayuki reference.
-      const table = [
-        null,
-        [19,16,13,9],
-        [34,28,22,16],
-        [55,44,34,26],
-        [80,64,48,36],
-        [108,86,62,46],
-        [136,108,76,60],
-        [156,124,88,66],
-        [194,154,110,86],
-        [232,182,132,100],
-        [274,216,154,122],
-        [324,254,180,140],
-        [370,290,206,158],
-        [428,334,244,180],
-        [461,365,261,197],
-        [523,415,295,223],
-        [589,453,325,253],
-        [647,507,367,283],
-        [721,563,397,313],
-        [795,627,445,341],
-        [861,669,485,385],
-      ];
-      const idx = ecl; // L=0 M=1 Q=2 H=3 mapped above
-      return table[ver][idx];
-    }
-
-    static getEccBlocks(ver, ecl) {
-      // Subset table for versions 1..20: [eccPerBlock, numBlocks] per ecl L,M,Q,H
-      // Derived from QR spec (and Nayuki).
-      const t = {
-        1:  [[7,1],[10,1],[13,1],[17,1]],
-        2:  [[10,1],[16,1],[22,1],[28,1]],
-        3:  [[15,1],[26,1],[18,2],[22,2]],
-        4:  [[20,1],[18,2],[26,2],[16,4]],
-        5:  [[26,1],[24,2],[18,4],[22,4]],
-        6:  [[18,2],[16,4],[24,4],[28,4]],
-        7:  [[20,2],[18,4],[18,6],[26,5]],
-        8:  [[24,2],[22,4],[22,6],[26,6]],
-        9:  [[30,2],[22,5],[20,8],[24,8]],
-        10: [[18,4],[26,5],[24,8],[28,8]],
-        11: [[20,4],[30,5],[28,8],[24,11]],
-        12: [[24,4],[22,8],[26,10],[28,11]],
-        13: [[26,4],[22,9],[24,12],[22,16]],
-        14: [[30,4],[24,9],[20,16],[24,16]],
-        15: [[22,6],[24,10],[30,12],[24,18]],
-        16: [[24,6],[28,10],[24,17],[30,16]],
-        17: [[28,6],[28,11],[28,16],[28,19]],
-        18: [[30,6],[26,13],[28,18],[28,21]],
-        19: [[28,7],[26,14],[26,21],[26,25]],
-        20: [[28,8],[26,16],[30,20],[28,25]],
-      };
-      const [eccPerBlock, numBlocks] = t[ver][ecl];
-      return { eccPerBlock, numBlocks };
-    }
   }
-
-  class QrSegment {
-    constructor(mode, numChars, bitData) { this.mode = mode; this.numChars = numChars; this.bitData = bitData; }
-    static Mode = {
-      BYTE: {
-        modeBits: 0b0100,
-        numCharCountBits: (ver) => (ver <= 9 ? 8 : ver <= 26 ? 16 : 16)
-      }
-    };
-    static makeSegments(text) {
-      const bytes = new TextEncoder().encode(text);
-      const bb = new BitBuffer();
-      for (const b of bytes) bb.appendBits(b, 8);
-      return [new QrSegment(QrSegment.Mode.BYTE, bytes.length, bb)];
-    }
-  }
-
-  class BitBuffer {
-    constructor(){ this.bits = []; }
+  class BitBuffer{
+    constructor(){ this.bits=[]; }
     get length(){ return this.bits.length; }
-    appendBits(val, len){
-      for(let i=len-1;i>=0;i--) this.bits.push(((val>>>i)&1)!==0);
-    }
+    appendBits(val,len){ for(let i=len-1;i>=0;i--) this.bits.push(((val>>>i)&1)!==0); }
     appendData(bb){ for(const b of bb.bits) this.bits.push(b); }
     getBytes(){
       const out=[];
       for(let i=0;i<this.bits.length;i+=8){
         let v=0;
-        for(let j=0;j<8;j++) v = (v<<1) | (this.bits[i+j] ? 1 : 0);
+        for(let j=0;j<8;j++) v=(v<<1)|(this.bits[i+j]?1:0);
         out.push(v);
       }
       return out;
     }
   }
-
-  class ReedSolomonGenerator {
-    constructor(degree) {
-      this.degree = degree;
-      this.coefficients = [1];
-      for (let i = 0; i < degree; i++) {
-        this.coefficients = ReedSolomonGenerator.multiplyPoly(this.coefficients, [1, ReedSolomonGenerator.exp(i)]);
+  class ReedSolomon{
+    constructor(deg){
+      this.deg=deg;
+      this.coef=[1];
+      for(let i=0;i<deg;i++) this.coef = ReedSolomon.mulPoly(this.coef,[1,ReedSolomon.exp(i)]);
+    }
+    static cache=new Map();
+    static get(deg){ if(!this.cache.has(deg)) this.cache.set(deg,new ReedSolomon(deg)); return this.cache.get(deg); }
+    rem(data){
+      const res=new Array(this.deg).fill(0);
+      for(const b of data){
+        const factor=b^res.shift();
+        res.push(0);
+        for(let i=0;i<this.deg;i++) res[i] ^= ReedSolomon.mul(this.coef[i+1], factor);
       }
+      return res;
     }
-    static cache = new Map();
-    static get(deg){
-      if(!this.cache.has(deg)) this.cache.set(deg, new ReedSolomonGenerator(deg));
-      return this.cache.get(deg);
-    }
-    getRemainder(data){
-      const result = new Array(this.degree).fill(0);
-      for (const b of data) {
-        const factor = b ^ result.shift();
-        result.push(0);
-        for (let i = 0; i < this.degree; i++) {
-          result[i] ^= ReedSolomonGenerator.mul(this.coefficients[i + 1], factor);
-        }
-      }
-      return result;
-    }
-    static multiplyPoly(p, q){
-      const out = new Array(p.length + q.length - 1).fill(0);
-      for (let i = 0; i < p.length; i++) for (let j = 0; j < q.length; j++) out[i + j] ^= ReedSolomonGenerator.mul(p[i], q[j]);
+    static mulPoly(p,q){
+      const out=new Array(p.length+q.length-1).fill(0);
+      for(let i=0;i<p.length;i++) for(let j=0;j<q.length;j++) out[i+j] ^= ReedSolomon.mul(p[i],q[j]);
       return out;
     }
-    static exp(i){
-      let x = 1;
-      for (let k = 0; k < i; k++) x = ReedSolomonGenerator.mul(x, 2);
-      return x;
-    }
-    static mul(x, y){
-      // GF(2^8) with primitive polynomial 0x11D
-      let z = 0;
-      for (let i = 7; i >= 0; i--) {
-        z = (z << 1) ^ ((z & 0x80) ? 0x11D : 0);
-        if (((y >>> i) & 1) !== 0) z ^= x;
+    static exp(i){ let x=1; for(let k=0;k<i;k++) x=ReedSolomon.mul(x,2); return x; }
+    static mul(x,y){
+      let z=0;
+      for(let i=7;i>=0;i--){
+        z=(z<<1)^((z&0x80)?0x11D:0);
+        if(((y>>>i)&1)!==0) z^=x;
       }
-      return z & 0xFF;
+      return z&0xFF;
     }
   }
 
   function renderQr(canvas, text){
     const ctx = canvas.getContext("2d");
-    // Use QUARTILE for robustness
     const qr = QrCode.encodeText(text, QrCode.Ecc.QUARTILE);
-    const quiet = 4; // modules
+    const quiet = 4;
     const size = qr.size + quiet*2;
-
-    // Choose integer scale so we draw pixel-perfect and do not rely on CSS scaling
     const scale = Math.floor(canvas.width / size);
     const drawSize = size * scale;
     const offset = Math.floor((canvas.width - drawSize)/2);
 
-    // White background
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle="#fff";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // Draw modules
-    ctx.fillStyle = "#000";
-    for(let y=0; y<qr.size; y++){
-      for(let x=0; x<qr.size; x++){
+    ctx.fillStyle="#000";
+    for(let y=0;y<qr.size;y++){
+      for(let x=0;x<qr.size;x++){
         if(qr.getModule(x,y)){
-          const xx = offset + (x + quiet) * scale;
-          const yy = offset + (y + quiet) * scale;
-          ctx.fillRect(xx, yy, scale, scale);
+          const xx = offset + (x+quiet)*scale;
+          const yy = offset + (y+quiet)*scale;
+          ctx.fillRect(xx,yy,scale,scale);
         }
       }
     }
   }
 
-  // --- Collapse behavior ---
-  let collapsed = false;
-  btnCollapse.addEventListener("click", ()=>{
-    collapsed = !collapsed;
-    document.body.classList.toggle("collapsed", collapsed);
-    btnCollapse.textContent = collapsed ? "Show panel" : "Hide panel";
-  });
+  // --- collapse ---
+  function setCollapsed(v){
+    document.body.classList.toggle("collapsed", v);
+  }
+  btnCollapse.addEventListener("click", ()=>setCollapsed(true));
+  btnRestore.addEventListener("click", ()=>setCollapsed(false));
 
-  // --- Leaderboard mode toggle ---
+  // --- score mode ---
   const modeCurrentBtn = $("modeCurrent");
   const modeBestBtn = $("modeBest");
   function setMode(m){
@@ -843,16 +799,10 @@ Ben Lim
   modeCurrentBtn.addEventListener("click", ()=>setMode("current"));
   modeBestBtn.addEventListener("click", ()=>setMode("best"));
 
-  // --- Init Firebase ---
+  // --- firebase init ---
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getDatabase(app);
-
-  authStatus.textContent = "Signing in…";
-  setupHint.textContent = "";
-
-  // Keep last players to re-render on mode changes
-  let lastPlayersCache = {};
 
   onAuthStateChanged(auth, async (user)=>{
     if(user){
@@ -861,15 +811,12 @@ Ben Lim
       btnStart.disabled = false;
       btnSaveRoster.disabled = false;
       btnLoadRoster.disabled = false;
-
-      // Auto-load saved roster
       await loadRoster();
     }else{
-      myUid = "";
+      myUid="";
       authStatus.textContent = "Signing in…";
     }
   });
-
   signInAnonymously(auth).catch(err=>{
     authStatus.textContent = "Auth error";
     setupHint.textContent = "Auth error: " + (err?.code || err?.message || String(err));
@@ -896,37 +843,28 @@ Ben Lim
       setupHint.textContent = "Could not load saved roster (check database rules).";
     }
   }
-
   btnLoadRoster.addEventListener("click", loadRoster);
 
   btnSaveRoster.addEventListener("click", async ()=>{
     try{
       const roster = parseRoster(rosterTA.value);
-      if(!roster.length){
-        setupHint.textContent = "Roster is empty. Add at least 1 name.";
-        return;
-      }
+      if(!roster.length){ setupHint.textContent="Roster is empty."; return; }
       await set(ref(db, `teachers/${myUid}/roster/default`), roster);
       setupHint.textContent = `Roster saved (${roster.length} names).`;
     }catch(e){
       console.error(e);
-      setupHint.textContent = "Could not save roster (check database rules).";
+      setupHint.textContent = "Could not save roster.";
     }
   });
 
   function stopPlayersListener(){
-    if(playersUnsub){
-      playersUnsub();
-      playersUnsub = null;
-    }
+    if(playersUnsub){ playersUnsub(); playersUnsub=null; }
   }
-
   function listenPlayers(sid){
     stopPlayersListener();
     const playersRef = ref(db, `sessions/${sid}/players`);
     const unsub = onValue(playersRef, (snap)=>{
-      const data = snap.exists() ? snap.val() : {};
-      lastPlayersCache = data || {};
+      lastPlayersCache = snap.exists() ? (snap.val() || {}) : {};
       renderLeaderboard(lastPlayersCache);
       lbStatus.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
     });
@@ -934,50 +872,44 @@ Ben Lim
   }
 
   function renderLeaderboard(playersObj){
-    const roster = [];
-    for(const [uid, p] of Object.entries(playersObj||{})){
-      if(!p || typeof p !== "object") continue;
-      const nm = (p.name || "").trim();
-      if(!nm) continue;
-      const cur = Number(p.currentScore||0);
-      const best = Number(p.bestScore||0);
-      const metric = scoreMode==="best" ? best : cur;
-      roster.push({
-        uid,
-        name:nm,
-        cur,
-        best,
-        metric,
-        answered: Number(p.answered||0),
-        lastSeen: (typeof p.lastSeen==="number" ? p.lastSeen : null)
+    const rows=[];
+    for(const [uid,p] of Object.entries(playersObj||{})){
+      if(!p || typeof p!=="object") continue;
+      const name=(p.name||"").trim();
+      if(!name) continue;
+      const cur=Number(p.currentScore||0);
+      const best=Number(p.bestScore||0);
+      const metric=(scoreMode==="best")?best:cur;
+      rows.push({
+        name, cur, best, metric,
+        answered:Number(p.answered||0),
+        lastSeen:(typeof p.lastSeen==="number")?p.lastSeen:null
       });
     }
-
-    roster.sort((a,b)=>{
-      if(b.metric !== a.metric) return b.metric - a.metric;
-      if(b.answered !== a.answered) return b.answered - a.answered;
+    rows.sort((a,b)=>{
+      if(b.metric!==a.metric) return b.metric-a.metric;
+      if(b.answered!==a.answered) return b.answered-a.answered;
       return a.name.localeCompare(b.name);
     });
 
     const n = Math.max(1, Math.min(999, Number(topN.value||12)));
-    const view = roster.slice(0, n);
+    const view = rows.slice(0,n);
 
     if(!currentSid){
       lbBody.innerHTML = `<tr><td colspan="5" class="muted">No session yet.</td></tr>`;
       return;
     }
-    if(view.length === 0){
+    if(!view.length){
       lbBody.innerHTML = `<tr><td colspan="5" class="muted">No players yet.</td></tr>`;
       return;
     }
-
-    lbBody.innerHTML = view.map((p, i)=>{
-      const offline = p.lastSeen && (Date.now() - p.lastSeen) > 45000;
-      const score = scoreMode==="best" ? p.best : p.cur;
+    lbBody.innerHTML = view.map((p,i)=>{
+      const offline = p.lastSeen && (Date.now()-p.lastSeen)>45000;
+      const score = (scoreMode==="best")?p.best:p.cur;
       return `
-        <tr class="${offline ? "offline":""}">
+        <tr class="${offline?'offline':''}">
           <td class="rank">${i+1}</td>
-          <td class="nameCell">${escapeHtml(p.name)}</td>
+          <td><strong>${escapeHtml(p.name)}</strong></td>
           <td class="right score">${score}</td>
           <td class="right">${p.answered}</td>
           <td class="right">${fmtLastSeen(p.lastSeen)}</td>
@@ -986,37 +918,91 @@ Ben Lim
     }).join("");
   }
 
-  function setJoinDisplay(sid){
-    currentSid = sid;
-    sidPill.textContent = sid || "—";
-    sessionCodeEl.textContent = sid || "—";
-    if(!sid){
+  function makeJoinUrl(sid){
+    const u = new URL(location.href);
+    u.pathname = u.pathname.replace(/teacher\.html$/i, "student.html");
+    u.search = "?sid=" + encodeURIComponent(sid);
+    return u.toString();
+  }
+
+  // Keep QR pixel-perfect by syncing canvas pixel size to its CSS size (prevents blur)
+  function syncCanvasToCss(canvas){
+    const rect = canvas.getBoundingClientRect();
+    const size = Math.max(180, Math.floor(Math.min(rect.width, rect.height)));
+    if(canvas.width !== size || canvas.height !== size){
+      canvas.width = size;
+      canvas.height = size;
+      return true;
+    }
+    return false;
+  }
+
+  function updateJoinDisplay(sid){
+    currentSid = sid || "";
+    sidPill.textContent = currentSid || "—";
+    sessionCodeEl.textContent = currentSid || "—";
+
+    if(!currentSid){
       joinLinkEl.textContent = "—";
       btnCopy.disabled = true;
-      // clear QR
-      const ctx = qrCanvas.getContext("2d");
-      ctx.fillStyle="#fff"; ctx.fillRect(0,0,qrCanvas.width, qrCanvas.height);
+      btnQrFull.disabled = true;
+      lastJoinUrl = "";
+      // blank QR
+      const ctx = qrSmall.getContext("2d");
+      ctx.fillStyle="#fff"; ctx.fillRect(0,0,qrSmall.width, qrSmall.height);
+      const ctx2 = qrBig.getContext("2d");
+      ctx2.fillStyle="#fff"; ctx2.fillRect(0,0,qrBig.width, qrBig.height);
       return;
     }
-    const joinUrl = new URL(location.href);
-    joinUrl.pathname = joinUrl.pathname.replace(/teacher\.html$/i, "student.html");
-    joinUrl.search = "?sid=" + encodeURIComponent(sid);
 
-    const urlStr = joinUrl.toString();
-    joinLinkEl.textContent = urlStr;
+    lastJoinUrl = makeJoinUrl(currentSid);
+    joinLinkEl.textContent = lastJoinUrl;
+    modalLink.textContent = lastJoinUrl;
+
     btnCopy.disabled = false;
+    btnQrFull.disabled = false;
 
-    // draw QR
-    renderQr(qrCanvas, urlStr);
+    // ensure small canvas uses its CSS size (so it never clips)
+    syncCanvasToCss(qrSmall);
+    renderQr(qrSmall, lastJoinUrl);
+
+    // big canvas fixed (720)
+    renderQr(qrBig, lastJoinUrl);
   }
+
+  // Re-render small QR if window resizes
+  const ro = new ResizeObserver(()=>{
+    if(!lastJoinUrl) return;
+    const changed = syncCanvasToCss(qrSmall);
+    if(changed) renderQr(qrSmall, lastJoinUrl);
+  });
+  ro.observe(qrSmall);
 
   btnCopy.addEventListener("click", async ()=>{
     try{
       await navigator.clipboard.writeText(joinLinkEl.textContent);
       joinHint.textContent = "Copied.";
       setTimeout(()=>joinHint.textContent="", 1200);
-    }catch(e){
-      joinHint.textContent = "Copy failed. Long-press to select and copy.";
+    }catch{
+      joinHint.textContent = "Copy failed. Select the link text and copy.";
+    }
+  });
+
+  btnQrFull.addEventListener("click", ()=>{
+    if(!lastJoinUrl) return;
+    qrModal.classList.add("show");
+    qrModal.setAttribute("aria-hidden","false");
+    // ensure big QR is fresh
+    renderQr(qrBig, lastJoinUrl);
+  });
+  btnCloseModal.addEventListener("click", ()=>{
+    qrModal.classList.remove("show");
+    qrModal.setAttribute("aria-hidden","true");
+  });
+  qrModal.addEventListener("click", (e)=>{
+    if(e.target === qrModal){
+      qrModal.classList.remove("show");
+      qrModal.setAttribute("aria-hidden","true");
     }
   });
 
@@ -1036,12 +1022,10 @@ Ben Lim
     const sid = randCode(len);
 
     try{
-      // Save roster for future
       await set(ref(db, `teachers/${myUid}/roster/default`), roster);
 
-      // Create session
       const pub = {
-        active: true,
+        active:true,
         createdAt: nowMs(),
         timeLimitSec: minutes*60,
         wrongPenalty: wrong,
@@ -1050,17 +1034,14 @@ Ben Lim
 
       await set(ref(db, `sessions/${sid}/teacherUid`), myUid);
       await set(ref(db, `sessions/${sid}/public`), pub);
-
-      // optional teacher node
       await set(ref(db, `teachers/${myUid}/sessions/${sid}`), { createdAt: pub.createdAt });
 
       btnStart.disabled = true;
       btnEnd.disabled = false;
 
-      setJoinDisplay(sid);
+      updateJoinDisplay(sid);
       listenPlayers(sid);
       setupHint.textContent = `Session started. Roster uploaded: ${roster.length} names.`;
-
     }catch(e){
       console.error(e);
       setupHint.textContent = "Failed to start session. Check console / database rules.";
@@ -1080,8 +1061,8 @@ Ben Lim
     btnEnd.disabled = true;
   });
 
-  // initial QR placeholder
-  setJoinDisplay("");
+  // initial
+  updateJoinDisplay("");
 
 </script>
 </body>
