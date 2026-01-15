@@ -46,7 +46,7 @@
   .qLine{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
 
   /* Answer */
-  .answerRow{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end}
+  
   .field{display:flex; flex-direction:column; gap:6px}
   .field label{font-size:12px; color:var(--muted)}
   .box{min-width:88px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:rgba(0,0,0,.22);
@@ -83,39 +83,34 @@
   select{width:100%; background:rgba(0,0,0,.22); color:var(--ink); border:1px solid var(--line);
          border-radius:12px; padding:10px 12px; outline:none}
 
-  /* Answer box natural mixed-number layout */
-  .ansGrid{display:grid; grid-template-columns: 1fr 1.2fr auto; gap:14px; align-items:end; margin-top:8px;}
-  .ansGrid .lbl{font-size:12px; letter-spacing:.02em; color:rgba(234,240,255,.65); margin:0 0 6px 2px;}
-  .ibox{
-    user-select:none;
-    border-radius:14px;
-    border:1px solid rgba(234,240,255,.16);
-    background:rgba(0,0,0,.18);
-    color:var(--ink);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:900;
-    line-height:1;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-    min-width:84px;
+  .answerRow{
+    display:grid;
+    grid-template-columns: auto auto auto;
+    gap:12px;
+    align-items:end;
   }
-  .ibox.big{height:58px; font-size:30px; padding:6px 10px;}
-  .ibox.small{height:28px; font-size:18px; padding:4px 8px; min-width:96px;}
-  .ibox.active{outline:2px solid rgba(102,217,255,.70); outline-offset:2px;}
-  .fracStack{display:flex; flex-direction:column; align-items:stretch; gap:6px;}
-  .fracStack .bar{height:2px; background:rgba(234,240,255,.28); border-radius:2px;}
-  .submitCol .btn{height:48px; min-width:110px;}
-  @media (max-width: 900px){
-    .ansGrid{grid-template-columns: 1fr 1.1fr; grid-template-areas:
-      "w f"
-      "s s";
-    }
-    .wholeCol{grid-area:w}
-    .fracCol{grid-area:f}
-    .submitCol{grid-area:s}
-    .submitCol .btn{width:100%;}
+  .wholeCol,.fracCol,.submitCol{display:flex; flex-direction:column; gap:6px}
+  .boxWhole{
+    min-width:96px;
+    padding:14px 14px;
+    font-size:34px;
+    border-radius:18px;
   }
+  .boxSmall{
+    min-width:126px;
+    padding:8px 10px;
+    font-size:22px;
+    border-radius:16px;
+  }
+  .fracStack{
+    display:grid;
+    grid-template-rows: auto auto 4px auto auto;
+    gap:6px;
+    justify-items:stretch;
+  }
+  .fracBar2{height:4px; border-radius:3px; background:rgba(234,240,255,.32)}
+  .labelSmall{font-size:12px; color:var(--muted); margin:0}
+  .simplestLine{margin-top:10px; color:var(--muted); font-size:12px}
 
 </style>
 </head>
@@ -138,31 +133,32 @@
       <h2>Question</h2>
       <div class="body questionBox">
         <div id="qRender" class="qText">—</div>
-        <div id="qReq" class="sub">—</div>
+        <div id="qReq" class="sub">All answers must be expressed in the simplest form.</div>
 
         <div class="answerRow">
-          <div class="field">
+          <div class="wholeCol">
             <label>Whole</label>
-            <div id="inWhole" class="box"> </div>
+            <div id="inWhole" class="box boxWhole"> </div>
           </div>
 
-          <div class="field">
-            <label>Numerator</label>
-            <div id="inNum" class="box"> </div>
+          <div class="fracCol">
+            <div class="fracStack">
+              <label class="labelSmall">Numerator</label>
+              <div id="inNum" class="box boxSmall"> </div>
+              <div class="fracBar2"></div>
+              <label class="labelSmall">Denominator</label>
+              <div id="inDen" class="box boxSmall"> </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Denominator</label>
-            <div id="inDen" class="box"> </div>
-          </div>
-
-          <div class="field">
+          <div class="submitCol">
             <label>&nbsp;</label>
             <button class="primary" id="btnSubmit" disabled>Submit</button>
           </div>
         </div>
 
-        <div class="btnRow">
+        <div class="simplestLine">All answers must be expressed in the simplest form.</div>
+<div class="btnRow">
           <button id="btnStart" class="primary" disabled>Start</button>
           <button id="btnClear" class="alt">Clear</button>
           <button id="btnHelp">Rules</button>
@@ -597,28 +593,39 @@
   function validateReady(){
     if(!started || !current){ btnSubmit.disabled=true; return; }
 
-    const w = boxValue("whole");
-    const n = boxValue("num");
-    const d = boxValue("den");
-    // For strict mixed: whole must be present if requiredMixed; otherwise whole must be blank or 0
-    if(current.requiresMixed){
-      if(w==="" || n==="" || d===""){ btnSubmit.disabled=true; return; }
-      const wi=Number(w), ni=Number(n), di=Number(d);
-      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
-      if(wi<1 || ni<1 || di<2 || ni>=di) { btnSubmit.disabled=true; return; }
-      if(!isSimplest(ni,di)) { btnSubmit.disabled=false; return; } // still allow submit; will mark wrong with message
-      btnSubmit.disabled=false;
-      return;
-    }else{
-      // fraction-only answer: require num+den; whole must be blank
-      if(n==="" || d===""){ btnSubmit.disabled=true; return; }
-      if(w!=="" && w!=="0"){ btnSubmit.disabled=true; return; } // disallow mixed format here
-      const ni=Number(n), di=Number(d);
-      if(!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
-      if(ni<1 || di<2 || ni>=di+9999) { btnSubmit.disabled=true; return; }
-      btnSubmit.disabled=false;
-      return;
+    const w = boxValue("whole").trim();
+    const n = boxValue("num").trim();
+    const d = boxValue("den").trim();
+
+    const hasW = w !== "" && w !== "0";
+    const hasN = n !== "";
+    const hasD = d !== "";
+
+    // Allow submit if (A) whole only, (B) fraction only, (C) mixed number.
+    const coherent =
+      (hasW && !hasN && !hasD) ||
+      (!hasW && hasN && hasD) ||
+      (hasW && hasN && hasD);
+
+    if(!coherent){ btnSubmit.disabled=true; return; }
+
+    // If any fraction part present, require valid integers and d != 0
+    if(hasN || hasD){
+      const ni = parseInt(n,10), di = parseInt(d,10);
+      if(!Number.isFinite(ni) || !Number.isFinite(di) || di === 0){ btnSubmit.disabled=true; return; }
+      if(di < 2 || ni < 1){ btnSubmit.disabled=true; return; }
+
+      // If mixed, fractional part must be proper (so it *looks* like a mixed number entry)
+      if(hasW && !(ni < di)){ btnSubmit.disabled=true; return; }
     }
+
+    // Whole part must be a valid integer if present
+    if(hasW){
+      const wi = parseInt(w,10);
+      if(!Number.isFinite(wi) || wi < 0){ btnSubmit.disabled=true; return; }
+    }
+
+    btnSubmit.disabled = !(session && session.active);
   }
 
   function buildKeypad(){
