@@ -590,32 +590,22 @@ const joinHint = $("joinHint");
     msgEl.textContent="";
     msgEl.className="msg";
   }
+  
   function validateReady(){
     if(!started || !current){ btnSubmit.disabled=true; return; }
 
-    const w = boxValue("whole");
-    const n = boxValue("num");
-    const d = boxValue("den");
-    // For strict mixed: whole must be present if requiredMixed; otherwise whole must be blank or 0
-    if(current.requiresMixed){
-      if(w==="" || n==="" || d===""){ btnSubmit.disabled=true; return; }
-      const wi=Number(w), ni=Number(n), di=Number(d);
-      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
-      if(wi<1 || ni<1 || di<2 || ni>=di) { btnSubmit.disabled=true; return; }
-      if(!isSimplest(ni,di)) { btnSubmit.disabled=false; return; } // still allow submit; will mark wrong with message
-      btnSubmit.disabled=false;
-      return;
-    }else{
-      // fraction-only answer: require num+den; whole must be blank
-      if(n==="" || d===""){ btnSubmit.disabled=true; return; }
-      if(w!=="" && w!=="0"){ btnSubmit.disabled=true; return; } // disallow mixed format here
-      const ni=Number(n), di=Number(d);
-      if(!Number.isInteger(ni)||!Number.isInteger(di)) { btnSubmit.disabled=true; return; }
-      if(ni<1 || di<2 || ni>=di+9999) { btnSubmit.disabled=true; return; }
-      btnSubmit.disabled=false;
-      return;
-    }
+    const w = boxValue("whole").trim();
+    const n = boxValue("num").trim();
+    const d = boxValue("den").trim();
+
+    // Allow ANY format submission (whole / fraction / mixed), so we never "give away" the expected format.
+    // Only disable submit when absolutely nothing is entered.
+    if(w==="" && n==="" && d===""){ btnSubmit.disabled=true; return; }
+
+    // Otherwise, always allow submit; detailed validation happens in checkAnswer().
+    btnSubmit.disabled=false;
   }
+
 
   function buildKeypad(){
     const keys = $("keys");
@@ -896,42 +886,112 @@ btnStart.disabled = true; // until joined
     }
   });
 
+  
   function checkAnswer(q){
-    const w = boxValue("whole");
-    const n = boxValue("num");
-    const d = boxValue("den");
+    const wStr = boxValue("whole").trim();
+    const nStr = boxValue("num").trim();
+    const dStr = boxValue("den").trim();
 
-    if(q.requiresMixed){
-      // must be mixed, strict
-      if(w===""||n===""||d==="") return {ok:false, reason:"Incomplete mixed number."};
-      const wi=Number(w), ni=Number(n), di=Number(d);
-      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
-      if(wi<1) return {ok:false, reason:"Whole part must be ≥ 1."};
-      if(di<2 || ni<1 || ni>=di) return {ok:false, reason:"Fraction part must be proper."};
-      if(!isSimplest(ni,di)) return {ok:false, reason:"Not in simplest form."};
+    const hasW = (wStr !== "");
+    const hasN = (nStr !== "");
+    const hasD = (dStr !== "");
 
-      const target = toMixed(q.ans);
-      // target must actually be mixed
-      if(!(Math.abs(q.ans.n)>q.ans.d && Math.abs(q.ans.n)%q.ans.d!==0)){
-        return {ok:false, reason:"This question is not a mixed number target (generation issue)."};
+    // Nothing entered
+    if(!hasW && !hasN && !hasD) return {ok:false, reason:"Enter an answer."};
+
+    // Helper: parse non-negative integer safely
+    const parseIntStrict = (s)=>{
+      if(!/^\d+$/.test(s)) return null;
+      const v = Number(s);
+      return Number.isSafeInteger(v) ? v : null;
+    };
+
+    // Determine whether user attempted a fraction part
+    const hasFracPart = hasN || hasD;
+
+    // If fraction part started, require both
+    if(hasFracPart && !(hasN && hasD)){
+      return {ok:false, reason:"Incomplete fraction."};
+    }
+
+    // Parse whole (treat blank as 0 when fraction-only)
+    const w = hasW ? parseIntStrict(wStr) : 0;
+    if(w === null) return {ok:false, reason:"Invalid whole number."};
+
+    let n = 0, d = 1;
+    if(hasFracPart){
+      n = parseIntStrict(nStr); d = parseIntStrict(dStr);
+      if(n === null || d === null) return {ok:false, reason:"Invalid fraction."};
+      if(d === 0) return {ok:false, reason:"Denominator cannot be 0."};
+    }
+
+    // Identify submitted format
+    const submitted = (hasW && hasFracPart) ? "mixed" : (hasFracPart ? "fraction" : "whole");
+
+    // Validate denominator range if present
+    if(hasFracPart && d < 2) return {ok:false, reason:"Denominator must be ≥ 2."};
+
+    // Compute submitted value as an improper fraction
+    let subN, subD;
+    if(submitted === "whole"){
+      subN = w; subD = 1;
+    }else if(submitted === "fraction"){
+      subN = n; subD = d;
+    }else{ // mixed
+      subN = w*d + n; subD = d;
+    }
+
+    // Reduce submitted and target for value comparison
+    const subR = reduce(subN, subD);
+    const tgtR = reduce(q.ans.n, q.ans.d);
+
+    const sameValue = (subR.n === tgtR.n && subR.d === tgtR.d);
+    if(!sameValue){
+      return {ok:false, reason:"Incorrect."};
+    }
+
+    // Value matches — now enforce REQUIRED FORMAT + simplest form.
+    const expectedIsWhole = (tgtR.d === 1);
+    const expectedIsMixed = (!expectedIsWhole && q.requiresMixed);
+    const expectedIsFraction = (!expectedIsWhole && !q.requiresMixed);
+
+    if(expectedIsWhole){
+      // Must be a whole number only (no fraction part)
+      if(submitted !== "whole"){
+        return {ok:false, reason:"Answer is a whole number. Enter it in the whole box only."};
       }
-      const ok = (wi===target.whole && ni===target.remN && di===target.remD);
-      return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
-    }else{
-      // must be simplest fraction, and whole must be blank
-      if(w!=="" && w!=="0") return {ok:false, reason:"Do not enter a whole part for this question."};
-      if(n===""||d==="") return {ok:false, reason:"Incomplete fraction."};
-      const ni=Number(n), di=Number(d);
-      if(!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
-      if(di<2 || ni<1) return {ok:false, reason:"Invalid fraction."};
-      const r = reduce(ni,di);
-      if(!(r.n===ni && r.d===di)) return {ok:false, reason:"Not in simplest form."};
+      return {ok:true};
+    }
 
-      // compare to correct answer; for non-mixed we ensure answer should be < 1
-      const ok = (ni===q.ans.n && di===q.ans.d);
+    if(expectedIsMixed){
+      // Must be mixed number; improper fraction not accepted
+      if(submitted !== "mixed"){
+        return {ok:false, reason:"Convert to a mixed number (simplest form)."};
+      }
+      // Mixed must have proper fractional part and simplest
+      if(w < 1) return {ok:false, reason:"Whole part must be ≥ 1."};
+      if(n < 1 || n >= d) return {ok:false, reason:"Fraction part must be proper."};
+      if(!isSimplest(n,d)) return {ok:false, reason:"Not in simplest form."};
+
+      const target = toMixed(tgtR);
+      if(!target.isMixed) return {ok:false, reason:"Answer is not mixed."};
+      const ok = (w === target.whole && n === target.remN && d === target.remD);
       return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
     }
+
+    // Expected fraction-only (proper fraction < 1) in simplest form
+    if(submitted !== "fraction"){
+      return {ok:false, reason:"Answer should be a fraction. Leave whole blank."};
+    }
+    if(n < 1) return {ok:false, reason:"Invalid fraction."};
+    if(n >= d) return {ok:false, reason:"Use a proper fraction (less than 1)."};
+    const r = reduce(n,d);
+    if(!(r.n===n && r.d===d)) return {ok:false, reason:"Not in simplest form."};
+
+    const ok = (n === tgtR.n && d === tgtR.d);
+    return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
   }
+
 
   async function endRound(why){
     if(!started) return;
