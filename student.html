@@ -133,7 +133,7 @@
       <h2>Question</h2>
       <div class="body questionBox">
         <div id="qRender" class="qText">—</div>
-        <div id="qReq" class="sub">All answers must be expressed in the simplest form.</div>
+        <div id="qReq" class="sub">Answer:</div>
 
         <div class="answerRow">
           <div class="wholeCol">
@@ -850,14 +850,8 @@
     current = questions[completed];
     qIndexEl.textContent = String(completed+1);
     qRender.innerHTML = exprToHtml(current.expr);
-
-    // requirement label
-    const req = [];
-    if(current.mustSimplify) req.push("Cross-cancellation possible");
-    if(current.requiresMixed) req.push("Answer must be a mixed number (simplest fractional part)");
-    else req.push("Answer must be a fraction in simplest form");
-    qReq.textContent = req.join(" • ");
-
+    // Fixed line under the question (no hints)
+    qReq.textContent = "Answer:";
     clearAll();
     setFocus(current.requiresMixed ? "whole" : "num");
     qStartedAt = Date.now();
