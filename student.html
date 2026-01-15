@@ -480,15 +480,27 @@
   function pack(type, expr, ans, mustSimplify, isMixed){
     const reduced = reduce(ans.n, ans.d);
     const mixed = toMixed(reduced);
-    // Determine whether this question SHOULD be answered as mixed number (strict)
-    const requiresMixed = isMixed; // only the 3 planned ones should end up here
+
+    // Required answer kind is derived from the actual simplified result.
+    // whole: remainder 0; fraction: whole 0; mixed: whole>0 and remainder>0
+    let answerKind = "fraction";
+    if(mixed.remN===0){
+      answerKind = "whole";
+    }else if(mixed.whole===0){
+      answerKind = "fraction";
+    }else{
+      answerKind = "mixed";
+    }
+
     return {
       type, expr, ans: reduced,
       requiresSimplest: true,
-      requiresMixed,
-      mustSimplify
+      answerKind,
+      mustSimplify,
+      plannedMixed: !!isMixed   // used only for generation counts, not marking
     };
   }
+
 
   function buildBlueprint(){
     // Decide which specific slot indices are simplify-required/mixed-required
@@ -900,41 +912,67 @@
   });
 
   function checkAnswer(q){
-    const w = boxValue("whole");
-    const n = boxValue("num");
-    const d = boxValue("den");
+    const wStr = boxValue("whole");
+    const nStr = boxValue("num");
+    const dStr = boxValue("den");
 
-    if(q.requiresMixed){
-      // must be mixed, strict
-      if(w===""||n===""||d==="") return {ok:false, reason:"Incomplete mixed number."};
-      const wi=Number(w), ni=Number(n), di=Number(d);
-      if(!Number.isInteger(wi)||!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
-      if(wi<1) return {ok:false, reason:"Whole part must be ≥ 1."};
-      if(di<2 || ni<1 || ni>=di) return {ok:false, reason:"Fraction part must be proper."};
-      if(!isSimplest(ni,di)) return {ok:false, reason:"Not in simplest form."};
+    // Decide the student's entered form (coherent forms only).
+    let form = null;
+    if(wStr!=="" && nStr==="" && dStr==="") form = "whole";
+    else if(wStr==="" && nStr!=="" && dStr!=="") form = "fraction";
+    else if(wStr!=="" && nStr!=="" && dStr!=="") form = "mixed";
+    else return {ok:false, reason:"Incorrect."};
 
-      const target = toMixed(q.ans);
-      // target must actually be mixed
-      if(!(Math.abs(q.ans.n)>q.ans.d && Math.abs(q.ans.n)%q.ans.d!==0)){
-        return {ok:false, reason:"This question is not a mixed number target (generation issue)."};
-      }
-      const ok = (wi===target.whole && ni===target.remN && di===target.remD);
-      return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
+    const toInt = (s)=>Number(s);
+    const wi = wStr===""?0:toInt(wStr);
+    const ni = nStr===""?0:toInt(nStr);
+    const di = dStr===""?0:toInt(dStr);
+
+    if(form==="whole"){
+      if(!Number.isInteger(wi) || wi<0) return {ok:false, reason:"Incorrect."};
     }else{
-      // must be simplest fraction, and whole must be blank
-      if(w!=="" && w!=="0") return {ok:false, reason:"Do not enter a whole part for this question."};
-      if(n===""||d==="") return {ok:false, reason:"Incomplete fraction."};
-      const ni=Number(n), di=Number(d);
-      if(!Number.isInteger(ni)||!Number.isInteger(di)) return {ok:false, reason:"Invalid number."};
-      if(di<2 || ni<1) return {ok:false, reason:"Invalid fraction."};
+      if(!Number.isInteger(ni) || !Number.isInteger(di)) return {ok:false, reason:"Incorrect."};
+      if(di<2 || ni<1) return {ok:false, reason:"Incorrect."};
+      if(form==="mixed"){
+        if(!Number.isInteger(wi) || wi<1) return {ok:false, reason:"Incorrect."};
+        if(ni>=di) return {ok:false, reason:"Incorrect."}; // proper fractional part
+      }
+      // simplest check for the fraction part (fraction-only or mixed)
       const r = reduce(ni,di);
-      if(!(r.n===ni && r.d===di)) return {ok:false, reason:"Not in simplest form."};
-
-      // compare to correct answer; for non-mixed we ensure answer should be < 1
-      const ok = (ni===q.ans.n && di===q.ans.d);
-      return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
+      if(!(r.n===ni && r.d===di)) return {ok:false, reason:"Incorrect."};
     }
+
+    // Compute student's value as an improper fraction (already simplest for their chosen representation).
+    let sNum = 0, sDen = 1;
+    if(form==="whole"){
+      sNum = wi; sDen = 1;
+    }else if(form==="fraction"){
+      sNum = ni; sDen = di;
+    }else{ // mixed
+      sNum = wi*di + ni; sDen = di;
+    }
+    const sRed = reduce(sNum, sDen);
+
+    // Determine required kind from the correct answer (fallback if missing)
+    let kind = q.answerKind;
+    if(!kind){
+      const m = toMixed(q.ans);
+      kind = (m.remN===0) ? "whole" : (m.whole===0 ? "fraction" : "mixed");
+    }
+
+    // Strict format rules (but allow submitting any form):
+    // - whole answers must be entered as whole
+    // - mixed answers must be entered as mixed
+    // - fraction answers must be entered as fraction (proper or improper)
+    if(kind==="whole" && form!=="whole") return {ok:false, reason:"Incorrect."};
+    if(kind==="mixed" && form!=="mixed") return {ok:false, reason:"Incorrect."};
+    if(kind==="fraction" && form!=="fraction") return {ok:false, reason:"Incorrect."};
+
+    // Compare values
+    const ok = (sRed.n===q.ans.n && sRed.d===q.ans.d);
+    return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
   }
+
 
   async function endRound(why){
     if(!started) return;
