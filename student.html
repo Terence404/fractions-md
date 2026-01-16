@@ -833,10 +833,7 @@
       currentScore: 0,
       bestScore: Math.max(0, prevBest),
       answered: 0,
-      correct: 0,
-      completed: 0,
       joinedAt: Date.now(),
-      leftAt: null,
       lastSeen: Date.now()
     });
 
@@ -892,10 +889,6 @@
       status: "playing",
       currentScore: 0,
       answered: 0,
-      correct: 0,
-      completed: 0,
-      endedAt: null,
-      leftAt: null,
       lastSeen: Date.now()
     });
 
@@ -968,16 +961,15 @@
 
       bestScoreLocal = Math.max(bestScoreLocal, score);
 
-      await update(ref(db, `sessions/${sid}/players/${uid}`), {
-        status: completed>=10 ? "finished" : "playing",
-        currentScore: score,
-        bestScore: bestScoreLocal,
-        answered: completed,
-        correct,
-        completed,
-        endedAt: (completed>=10) ? Date.now() : null,
-        lastSeen: Date.now()
-      });
+      try{
+        await update(ref(db, `sessions/${sid}/players/${uid}`), {
+          status: completed>=10 ? "finished" : "playing",
+          currentScore: score,
+          bestScore: bestScoreLocal,
+          answered: completed,
+          lastSeen: Date.now()
+        });
+      }catch(e){ console.warn(e); }
 
       nextQuestion();
     }else{
@@ -989,13 +981,15 @@
 
       scoreEl.textContent = String(score);
 
-      await update(ref(db, `sessions/${sid}/players/${uid}`), {
-        status: "playing",
-        currentScore: score,
-        bestScore: bestScoreLocal,
-        answered: completed,
-        lastSeen: Date.now()
-      });
+      try{
+        await update(ref(db, `sessions/${sid}/players/${uid}`), {
+                status: "playing",
+                currentScore: score,
+                bestScore: bestScoreLocal,
+                answered: completed,
+                lastSeen: Date.now()
+              });
+      }catch(e){ console.warn(e); }
     }
   });
 
@@ -1072,9 +1066,6 @@
       currentScore: score,
       bestScore: bestScoreLocal,
       answered: completed,
-      correct,
-      completed,
-      endedAt: Date.now(),
       lastSeen: Date.now()
     });
   }
