@@ -429,10 +429,7 @@
         ans = fracMul(fracFromInt(W), B);
         const mixed = willBeMixed_wMulF(W,B);
         if(mustMixed && !mixed) continue;
-        if(!mustMixed && mixed) {
-          // ok to be non-mixed if we don't demand mixed; but you want exactly 3 mixed total;
-          // we'll control that at blueprint level, so here we just respect mustMixed.
-        }
+        if(!mustMixed && mixed) continue;
         if(mustSimplify && !needsSimplify_intMul(W,B)) continue;
         if(!mustSimplify && needsSimplify_intMul(W,B)) continue;
         if(!capAnswer(ans)) continue;
@@ -455,6 +452,7 @@
         ans = fracDiv(A,B);
         const mixed = willBeMixed_fDivF(A,B);
         if(mustMixed && !mixed) continue;
+        if(!mustMixed && mixed) continue;
         if(mustSimplify && !needsSimplify_fDivF(A,B)) continue;
         if(!mustSimplify && needsSimplify_fDivF(A,B)) continue;
         if(!capAnswer(ans)) continue;
@@ -467,6 +465,7 @@
         ans = fracDiv(fracFromInt(W), B);
         const mixed = willBeMixed_wDivF(W,B);
         if(mustMixed && !mixed) continue;
+        if(!mustMixed && mixed) continue;
         if(mustSimplify && !needsSimplify_wDivF(W,B)) continue;
         if(!mustSimplify && needsSimplify_wDivF(W,B)) continue;
         if(!capAnswer(ans)) continue;
@@ -479,28 +478,21 @@
 
   function pack(type, expr, ans, mustSimplify, isMixed){
     const reduced = reduce(ans.n, ans.d);
-    const mixed = toMixed(reduced);
+    let answerKind = "frac";
+    if(reduced.d===1) answerKind = "whole";
+    else if(Math.abs(reduced.n) > reduced.d) answerKind = "mixed";
+    else answerKind = "frac";
 
-    // Required answer kind is derived from the actual simplified result.
-    // whole: remainder 0; fraction: whole 0; mixed: whole>0 and remainder>0
-    let answerKind = "fraction";
-    if(mixed.remN===0){
-      answerKind = "whole";
-    }else if(mixed.whole===0){
-      answerKind = "fraction";
-    }else{
-      answerKind = "mixed";
-    }
+    // Safety: if a slot was designated mixed, enforce mixed answers.
+    if(isMixed && answerKind!=="mixed") return null;
 
     return {
       type, expr, ans: reduced,
-      requiresSimplest: true,
       answerKind,
-      mustSimplify,
-      plannedMixed: !!isMixed   // used only for generation counts, not marking
+      requiresSimplest: true,
+      mustSimplify
     };
   }
-
 
   function buildBlueprint(){
     // Decide which specific slot indices are simplify-required/mixed-required
@@ -540,7 +532,12 @@
       const type = slots[i];
       const mustSimplify = simplifySlots.has(i);
       const mustMixed = mixedSlots.has(i);
-      qs.push(genQuestion(type, mustSimplify, mustMixed));
+      let q=null;
+      for(let tries=0; tries<2000 && !q; tries++){
+        q = genQuestion(type, mustSimplify, mustMixed);
+      }
+      if(!q) throw new Error("Could not generate question for "+type);
+      qs.push(q);
     }
 
     // Randomise order for presentation, but keep exactly 10
@@ -552,11 +549,54 @@
     return qs;
   }
 
-  // ---------- Scoring ----------
+  // ---------- Audio (WebAudio beeps) ----------
+  let audioCtx = null;
+  function ensureAudio(){
+    if(audioCtx) return audioCtx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    audioCtx = new AC();
+    return audioCtx;
+  }
+  function beep(kind){
+    const ctx = ensureAudio();
+    if(!ctx) return;
+    try{ if(ctx.state==="suspended") ctx.resume(); }catch(_e){}
+    const t0 = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.12, t0+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+0.18);
+    gain.connect(ctx.destination);
+
+    const o = ctx.createOscillator();
+    o.type = (kind==='wrong') ? 'triangle' : 'sine';
+    if(kind==='wrong'){
+      o.frequency.setValueAtTime(220, t0);
+      o.frequency.exponentialRampToValueAtTime(140, t0+0.18);
+    }else{
+      o.frequency.setValueAtTime(660, t0);
+      o.frequency.setValueAtTime(880, t0+0.07);
+    }
+    o.connect(gain);
+    o.start(t0);
+    o.stop(t0+0.18);
+  }
+
+// ---------- Scoring ----------
   function pointsForCorrect(seconds){
-    // Smooth: 0s -> 120, 10s -> 100, 40s -> 40, floor at 40
-    const pts = Math.max(40, Math.round(120 - 2*seconds));
-    return pts;
+    const base = 90;
+    seconds = Math.max(0, Math.floor(seconds));
+    let bonus = 0;
+    if(seconds <= 10){
+      bonus = Math.round(50 - 0.5*seconds); // 0s->50, 10s->45
+    } else if(seconds < 60){
+      bonus = Math.round(45 * (60 - seconds) / 50); // 10s->45 down to 0 by 60s
+    } else {
+      bonus = 0;
+    }
+    bonus = Math.max(0, Math.min(50, bonus));
+    return base + bonus;
   }
 
   function fmtTime(sec){
@@ -779,21 +819,55 @@
 
     // Write initial player record
     const playerRef = ref(db, `sessions/${sid}/players/${uid}`);
-    await set(playerRef, {
+    // Preserve bestScore across attempts in the same session
+    let prevBest = 0;
+    try{
+      const prev = await get(playerRef);
+      if(prev.exists()) prevBest = Number(prev.val()?.bestScore||0);
+    }catch(_e){}
+
+    await update(playerRef, {
       uid,
       name: myName,
       status: "lobby",
-      score: 0,
-      completed: 0,
+      currentScore: 0,
+      bestScore: Math.max(0, prevBest),
+      answered: 0,
       correct: 0,
-      startedAt: serverTimestamp(),
-      lastUpdate: serverTimestamp()
+      completed: 0,
+      joinedAt: Date.now(),
+      leftAt: null,
+      lastSeen: Date.now()
     });
+
+    // Mark as left if this tab closes / loses connection
+    try{
+      onDisconnect(playerRef).update({
+        status: "left",
+        leftAt: serverTimestamp(),
+        lastSeen: serverTimestamp()
+      });
+    }catch(e){ console.warn(e); }
+
+    startHeartbeat();
 
     joinModal.style.display="none";
     statusText.textContent = `Ready: ${myName}`;
     btnStart.disabled = false;
   });
+
+  // Heartbeat: update lastSeen every few seconds so teacher can see who is still around.
+  let hbTimer = null;
+  function startHeartbeat(){
+    if(hbTimer || !sid || !uid) return;
+    const playerRef = ref(db, `sessions/${sid}/players/${uid}`);
+    hbTimer = setInterval(()=>{
+      update(playerRef, { lastSeen: Date.now() }).catch(()=>{});
+    }, 4000);
+  }
+  function stopHeartbeat(){
+    if(hbTimer){ clearInterval(hbTimer); hbTimer=null; }
+  }
 
   // ---------- Game flow ----------
   btnStart.addEventListener("click", async ()=>{
@@ -804,6 +878,8 @@
     questions = buildBlueprint();
     completed = 0; correct = 0; score = 0;
     scoreEl.textContent = "0";
+    let bestScoreLocal = 0;
+    try{ const snap=await get(ref(db, `sessions/${sid}/players/${uid}`)); if(snap.exists()) bestScoreLocal = Number(snap.val()?.bestScore||0);}catch(_e){}
 
     // Start timers
     const limit = Number(session?.timeLimitSec || 720);
@@ -814,11 +890,13 @@
     // Update status in DB
     await update(ref(db, `sessions/${sid}/players/${uid}`), {
       status: "playing",
-      score: 0,
-      completed: 0,
+      currentScore: 0,
+      answered: 0,
       correct: 0,
+      completed: 0,
       endedAt: null,
-      lastUpdate: serverTimestamp()
+      leftAt: null,
+      lastSeen: Date.now()
     });
 
     btnStart.disabled = true;
@@ -865,7 +943,7 @@
     // Fixed line under the question (no hints)
     qReq.textContent = "Answer:";
     clearAll();
-    setFocus(current.requiresMixed ? "whole" : "num");
+    setFocus((current.answerKind==="whole" || current.answerKind==="mixed") ? "whole" : "num");
     qStartedAt = Date.now();
     validateReady();
   }
@@ -884,14 +962,21 @@
 
       msgEl.className="msg good";
       msgEl.textContent = `Correct! +${pts} points.`;
+      beep("correct");
 
       scoreEl.textContent = String(score);
 
+      bestScoreLocal = Math.max(bestScoreLocal, score);
+
       await update(ref(db, `sessions/${sid}/players/${uid}`), {
-        score, correct, completed,
         status: completed>=10 ? "finished" : "playing",
+        currentScore: score,
+        bestScore: bestScoreLocal,
+        answered: completed,
+        correct,
+        completed,
         endedAt: (completed>=10) ? Date.now() : null,
-        lastUpdate: serverTimestamp()
+        lastSeen: Date.now()
       });
 
       nextQuestion();
@@ -900,79 +985,68 @@
       score = Math.max(0, score - wrongPenalty);
       msgEl.className="msg bad";
       msgEl.textContent = result.reason + `  (-${wrongPenalty} points)`;
+      beep("wrong");
 
       scoreEl.textContent = String(score);
 
       await update(ref(db, `sessions/${sid}/players/${uid}`), {
-        score,
         status: "playing",
-        lastUpdate: serverTimestamp()
+        currentScore: score,
+        bestScore: bestScoreLocal,
+        answered: completed,
+        lastSeen: Date.now()
       });
     }
   });
 
   function checkAnswer(q){
-    const wStr = boxValue("whole");
-    const nStr = boxValue("num");
-    const dStr = boxValue("den");
+    const w = boxValue("whole").trim();
+    const n = boxValue("num").trim();
+    const d = boxValue("den").trim();
 
-    // Decide the student's entered form (coherent forms only).
-    let form = null;
-    if(wStr!=="" && nStr==="" && dStr==="") form = "whole";
-    else if(wStr==="" && nStr!=="" && dStr!=="") form = "fraction";
-    else if(wStr!=="" && nStr!=="" && dStr!=="") form = "mixed";
-    else return {ok:false, reason:"Incorrect."};
+    const hasW = w !== "" && w !== "0";
+    const hasN = n !== "";
+    const hasD = d !== "";
 
-    const toInt = (s)=>Number(s);
-    const wi = wStr===""?0:toInt(wStr);
-    const ni = nStr===""?0:toInt(nStr);
-    const di = dStr===""?0:toInt(dStr);
+    // classify submission
+    let form = null; // 'whole' | 'frac' | 'mixed'
+    if(hasW && !hasN && !hasD) form = 'whole';
+    else if(!hasW && hasN && hasD) form = 'frac';
+    else if(hasW && hasN && hasD) form = 'mixed';
+    else return {ok:false, reason:"Incomplete answer."};
 
-    if(form==="whole"){
-      if(!Number.isInteger(wi) || wi<0) return {ok:false, reason:"Incorrect."};
-    }else{
-      if(!Number.isInteger(ni) || !Number.isInteger(di)) return {ok:false, reason:"Incorrect."};
-      if(di<2 || ni<1) return {ok:false, reason:"Incorrect."};
-      if(form==="mixed"){
-        if(!Number.isInteger(wi) || wi<1) return {ok:false, reason:"Incorrect."};
-        if(ni>=di) return {ok:false, reason:"Incorrect."}; // proper fractional part
-      }
-      // simplest check for the fraction part (fraction-only or mixed)
-      const r = reduce(ni,di);
-      if(!(r.n===ni && r.d===di)) return {ok:false, reason:"Incorrect."};
+    // Parse & validate
+    if(form==='whole'){
+      const wi = parseInt(w,10);
+      if(!Number.isFinite(wi) || wi<0) return {ok:false, reason:"Invalid whole number."};
+      // Correct answer must be whole
+      if(q.answerKind!=='whole') return {ok:false, reason:"Incorrect."};
+      const target = q.ans.n; // d==1
+      return (wi===target) ? {ok:true} : {ok:false, reason:"Incorrect."};
     }
 
-    // Compute student's value as an improper fraction (already simplest for their chosen representation).
-    let sNum = 0, sDen = 1;
-    if(form==="whole"){
-      sNum = wi; sDen = 1;
-    }else if(form==="fraction"){
-      sNum = ni; sDen = di;
-    }else{ // mixed
-      sNum = wi*di + ni; sDen = di;
-    }
-    const sRed = reduce(sNum, sDen);
+    const ni = parseInt(n,10);
+    const di = parseInt(d,10);
+    if(!Number.isFinite(ni) || !Number.isFinite(di) || di===0) return {ok:false, reason:"Invalid fraction."};
+    if(di<2 || ni<1) return {ok:false, reason:"Invalid fraction."};
+    if(!isSimplest(ni,di)) return {ok:false, reason:"Not in simplest form."};
 
-    // Determine required kind from the correct answer (fallback if missing)
-    let kind = q.answerKind;
-    if(!kind){
-      const m = toMixed(q.ans);
-      kind = (m.remN===0) ? "whole" : (m.whole===0 ? "fraction" : "mixed");
+    if(form==='frac'){
+      if(q.answerKind!=='frac') return {ok:false, reason:"Incorrect."};
+      // Compare to reduced target
+      return (ni===q.ans.n && di===q.ans.d) ? {ok:true} : {ok:false, reason:"Incorrect."};
     }
 
-    // Strict format rules (but allow submitting any form):
-    // - whole answers must be entered as whole
-    // - mixed answers must be entered as mixed
-    // - fraction answers must be entered as fraction (proper or improper)
-    if(kind==="whole" && form!=="whole") return {ok:false, reason:"Incorrect."};
-    if(kind==="mixed" && form!=="mixed") return {ok:false, reason:"Incorrect."};
-    if(kind==="fraction" && form!=="fraction") return {ok:false, reason:"Incorrect."};
+    // mixed
+    const wi = parseInt(w,10);
+    if(!Number.isFinite(wi) || wi<1) return {ok:false, reason:"Whole part must be ≥ 1."};
+    if(!(ni < di)) return {ok:false, reason:"Fraction part must be proper."};
 
-    // Compare values
-    const ok = (sRed.n===q.ans.n && sRed.d===q.ans.d);
-    return ok ? {ok:true} : {ok:false, reason:"Incorrect."};
+    if(q.answerKind!=='mixed') return {ok:false, reason:"Incorrect."};
+    const t = toMixed(q.ans);
+    // For mixed targets, q.ans is improper non-integer
+    return (wi===t.whole && ni===t.remN && di===t.remD) ? {ok:true} : {ok:false, reason:"Incorrect."};
   }
-
 
   async function endRound(why){
     if(!started) return;
@@ -991,11 +1065,17 @@
 
     statusText.textContent = status;
 
+    bestScoreLocal = Math.max(bestScoreLocal, score);
+
     await update(ref(db, `sessions/${sid}/players/${uid}`), {
       status,
-      score, correct, completed,
+      currentScore: score,
+      bestScore: bestScoreLocal,
+      answered: completed,
+      correct,
+      completed,
       endedAt: Date.now(),
-      lastUpdate: serverTimestamp()
+      lastSeen: Date.now()
     });
   }
 
