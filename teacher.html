@@ -573,7 +573,7 @@
   const set = (r, v)=> r.set(v);
   const update = (r, v)=> r.update(v);
   const get = async (r)=> await r.once("value");
-  const onValue = (r, cb)=>{ r.on("value", cb); return ()=>r.};
+  const onValue = (r, cb)=>{ r.on("value", cb); return ()=>r.off("value", cb); };
   auth.onAuthStateChanged(async (user)=>{
     if(user){
       myUid=user.uid;
