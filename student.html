@@ -229,7 +229,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
-    getDatabase, ref, get, set, update, onValue, serverTimestamp
+    getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
   // ======= PASTE YOUR FIREBASE CONFIG HERE =======
@@ -301,7 +301,8 @@
   let ticker = null;
 
   let score = 0;
-  let completed = 0;
+  let bestScoreLocal = 0;
+let completed = 0;
   let correct = 0;
 
   let wrongPenalty = 20;
@@ -875,7 +876,7 @@
     questions = buildBlueprint();
     completed = 0; correct = 0; score = 0;
     scoreEl.textContent = "0";
-    let bestScoreLocal = 0;
+    bestScoreLocal = 0;
     try{ const snap=await get(ref(db, `sessions/${sid}/players/${uid}`)); if(snap.exists()) bestScoreLocal = Number(snap.val()?.bestScore||0);}catch(_e){}
 
     // Start timers
