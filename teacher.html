@@ -563,6 +563,56 @@
   modeCurrentBtn.addEventListener("click", ()=>setMode("current"));
   modeBestBtn.addEventListener("click", ()=>setMode("best"));
 
+
+  // --- Show all toggle (uses existing button in header) ---
+  let showAllActive = false;
+  let prevTopNValue = null;
+
+  function countNamedPlayers(playersObj){
+    let c = 0;
+    for(const p of Object.values(playersObj || {})){
+      if(p && typeof p === "object" && String(p.name || "").trim()) c++;
+    }
+    return c;
+  }
+
+  function setShowAllLabel(){
+    if(!btnShowAll) return;
+    if(showAllActive){
+      const backN = prevTopNValue || 12;
+      btnShowAll.textContent = `Back to Top ${backN}`;
+    }else{
+      btnShowAll.textContent = "Show all";
+    }
+  }
+
+  function toggleShowAll(){
+    if(!currentSid) return;
+    const count = countNamedPlayers(lastPlayersCache) || Object.keys(lastPlayersCache || {}).length || 1;
+    if(!showAllActive){
+      prevTopNValue = Number(topN.value || 12) || 12;
+      topN.value = String(Math.max(1, count));
+      showAllActive = true;
+    }else{
+      topN.value = String(prevTopNValue || 12);
+      showAllActive = false;
+    }
+    setShowAllLabel();
+    renderLeaderboard(lastPlayersCache);
+  }
+
+  if(btnShowAll){
+    btnShowAll.addEventListener("click", toggleShowAll);
+  }
+
+  // If user manually changes Top N, exit show-all mode
+  topN.addEventListener("change", ()=>{
+    if(showAllActive){
+      showAllActive = false;
+      setShowAllLabel();
+    }
+  });
+
   // --- firebase init (compat) ---
   firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
@@ -615,15 +665,6 @@
       setupHint.textContent = `Roster saved (${roster.length} names).`;
     }catch(e){ console.error(e); setupHint.textContent="Could not save roster."; }
   });
-  if(btnShowAll){
-    btnShowAll.addEventListener("click", ()=>{
-    const count = Object.keys(lastPlayersCache||{}).length;
-    topN.value = String(Math.max(1, count));
-    renderLeaderboard(lastPlayersCache);
-    });
-  }
-
-
   function stopPlayersListener(){ if(playersUnsub){ playersUnsub(); playersUnsub=null; } }
   function listenPlayers(sid){
     stopPlayersListener();
