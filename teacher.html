@@ -168,7 +168,10 @@
             <button id="modeCurrent" class="active" type="button">Current</button>
             <button id="modeBest" type="button">Best</button>
           </div>
-          <div class="small">Tip: If you want the full list, set Top N to 38.</div>
+          <div style=\"display:flex; gap:10px; align-items:center; flex-wrap:wrap\">
+            <div class=\"pill\" id=\"playersPill\">Players: 0</div>
+            <button class=\"secondary\" id=\"btnShowAll\" type=\"button\">Show all</button>
+          </div>
         </div>
 
         <div class="hr"></div>
@@ -179,13 +182,14 @@
               <tr>
                 <th class="rank">#</th>
                 <th>Name</th>
+                <th>Status</th>
                 <th class="right">Score</th>
                 <th class="right">Answered</th>
                 <th class="right">Last seen</th>
               </tr>
             </thead>
             <tbody id="lbBody">
-              <tr><td colspan="5" class="muted">No session yet.</td></tr>
+              <tr><td colspan="6" class="muted">No session yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -246,6 +250,8 @@
   const sessionCodeEl = $("sessionCode");
   const joinLinkEl = $("joinLink");
   const lbBody = $("lbBody");
+  const playersPill = $("playersPill");
+  const btnShowAll = $("btnShowAll");
   const lbStatus = $("lbStatus");
 
   const btnCollapse = $("btnCollapse");
@@ -602,6 +608,12 @@
       setupHint.textContent = `Roster saved (${roster.length} names).`;
     }catch(e){ console.error(e); setupHint.textContent="Could not save roster."; }
   });
+  btnShowAll.addEventListener("click", ()=>{
+    const count = Object.keys(lastPlayersCache||{}).length;
+    topN.value = String(Math.max(1, count));
+    renderLeaderboard(lastPlayersCache);
+  });
+
 
   function stopPlayersListener(){ if(playersUnsub){ playersUnsub(); playersUnsub=null; } }
   function listenPlayers(sid){
@@ -611,6 +623,7 @@
       lastPlayersCache = snap.exists()? (snap.val()||{}) : {};
       renderLeaderboard(lastPlayersCache);
       lbStatus.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
+      if(playersPill) playersPill.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
     });
     playersUnsub = ()=>off(playersRef, "value", unsub);
   }
@@ -621,28 +634,52 @@
       if(!p || typeof p!=="object") continue;
       const name=(p.name||"").trim();
       if(!name) continue;
-      const cur=Number(p.currentScore||0);
-      const best=Number(p.bestScore||0);
+      const cur=Number(p.currentScore ?? p.score ?? 0);
+      const best=Number(p.bestScore ?? 0);
       const metric=(scoreMode==="best")?best:cur;
-      rows.push({name, cur, best, metric, answered:Number(p.answered||0), lastSeen:(typeof p.lastSeen==="number")?p.lastSeen:null});
+      const answered=Number(p.answered ?? p.completed ?? 0);
+      const status=String(p.status||"").trim() || "playing";
+      const lastSeen=(typeof p.lastSeen==="number")?p.lastSeen:null;
+      const leftAt=(typeof p.leftAt==="number")?p.leftAt:null;
+      rows.push({uid,name,cur,best,metric,answered,status,lastSeen,leftAt});
     }
     rows.sort((a,b)=>{ if(b.metric!==a.metric) return b.metric-a.metric; if(b.answered!==a.answered) return b.answered-a.answered; return a.name.localeCompare(b.name); });
+
     const n = Math.max(1, Math.min(999, Number(topN.value||12)));
     const view = rows.slice(0,n);
 
-    if(!currentSid){ lbBody.innerHTML = `<tr><td colspan="5" class="muted">No session yet.</td></tr>`; return; }
-    if(!view.length){ lbBody.innerHTML = `<tr><td colspan="5" class="muted">No players yet.</td></tr>`; return; }
+    if(!currentSid){ lbBody.innerHTML = `<tr><td colspan="6" class="muted">No session yet.</td></tr>`; return; }
+    if(!view.length){ lbBody.innerHTML = `<tr><td colspan="6" class="muted">No players yet.</td></tr>`; return; }
+
+    const now = Date.now();
+    const badge = (status, stale)=>{
+      const s = (status||"playing").toLowerCase();
+      let label = s;
+      let color = "rgba(234,240,255,.72)";
+      if(s==="lobby") { label="lobby"; color="rgba(255,213,106,.95)"; }
+      else if(s==="playing") { label = stale?"offline":"playing"; color="rgba(102,217,255,.95)"; }
+      else if(s==="finished") { label="finished"; color="rgba(92,255,181,.95)"; }
+      else if(s==="timeup") { label="time up"; color="rgba(255,213,106,.95)"; }
+      else if(s==="left") { label="left"; color="rgba(255,107,107,.95)"; }
+      return `<span class="mono" style="font-size:12px; font-weight:900; color:${color}">${escapeHtml(label)}</span>`;
+    };
 
     lbBody.innerHTML = view.map((p,i)=>{
-      const offline = p.lastSeen && (Date.now()-p.lastSeen)>45000;
+      const seen = p.lastSeen || p.leftAt;
+      const stale = !!(seen && (now-seen)>45000);
+      const offlineRow = stale && p.status!=="left";
       const score = (scoreMode==="best")?p.best:p.cur;
+      const lastText = (String(p.status||"").toLowerCase()==="left")
+        ? (p.leftAt? `Left ${fmtLastSeen(p.leftAt)}` : `Left ${fmtLastSeen(p.lastSeen)}`)
+        : fmtLastSeen(p.lastSeen);
       return `
-        <tr class="${offline?'offline':''}">
+        <tr class="${offlineRow?'offline':''}">
           <td class="rank">${i+1}</td>
           <td><strong>${escapeHtml(p.name)}</strong></td>
+          <td>${badge(p.status, stale)}</td>
           <td class="right score">${score}</td>
           <td class="right">${p.answered}</td>
-          <td class="right">${fmtLastSeen(p.lastSeen)}</td>
+          <td class="right">${lastText}</td>
         </tr>
       `;
     }).join("");
@@ -650,16 +687,8 @@
 
   function makeJoinUrl(sid){
     const u = new URL(location.href);
-    const p = u.pathname || "";
-    if(/teacher\.html$/i.test(p)){
-      u.pathname = p.replace(/teacher\.html$/i, "student.html");
-    }else if(/\/$/.test(p)){
-      u.pathname = p + "student.html";
-    }else{
-      u.pathname = p.replace(/[^\/]+$/,"") + "student.html";
-    }
-    u.search = "?sid=" + encodeURIComponent(String(sid||""));
-    u.hash = "";
+    u.pathname = u.pathname.replace(/teacher\.html$/i, "student.html");
+    u.search = "?sid=" + encodeURIComponent(sid);
     return u.toString();
   }
 
