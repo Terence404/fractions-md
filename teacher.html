@@ -215,11 +215,12 @@
   </div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import { getDatabase, ref, set, get, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+<script>
   const firebaseConfig = {
   "apiKey": "AIzaSyBJA0S1lMftbIImWuIvrY84mtEZ3NeO-mA",
   "authDomain": "multiply-and-divide-fractions.firebaseapp.com",
@@ -562,12 +563,18 @@
   modeCurrentBtn.addEventListener("click", ()=>setMode("current"));
   modeBestBtn.addEventListener("click", ()=>setMode("best"));
 
-  // --- firebase init ---
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getDatabase(app);
+  // --- firebase init (compat) ---
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.database();
 
-  onAuthStateChanged(auth, async (user)=>{
+  // compat-style helpers to keep the rest of the code similar
+  const ref = (db, path)=> db.ref(path);
+  const set = (r, v)=> r.set(v);
+  const update = (r, v)=> r.update(v);
+  const get = async (r)=> await r.once("value");
+  const onValue = (r, cb)=>{ r.on("value", cb); return ()=>r.};
+  auth.onAuthStateChanged(async (user)=>{
     if(user){
       myUid=user.uid;
       authStatus.textContent="Signed in (anon)";
@@ -580,7 +587,7 @@
       authStatus.textContent="Signing in…";
     }
   });
-  signInAnonymously(auth).catch(err=>{
+  auth.signInAnonymously().catch(err=>{
     authStatus.textContent="Auth error";
     setupHint.textContent="Auth error: " + (err?.code || err?.message || String(err));
     console.error(err);
@@ -620,13 +627,13 @@
     stopPlayersListener();
     const playersRef = ref(db, `sessions/${sid}/players`);
     const unsub = onValue(playersRef, (snap)=>{
-      lastPlayersCache = snap.exists()? (snap.val()||{}) : {};
+lastPlayersCache = snap.exists()? (snap.val()||{}) : {};
       renderLeaderboard(lastPlayersCache);
       lbStatus.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
       if(playersPill) playersPill.textContent = `Players: ${Object.keys(lastPlayersCache||{}).length}`;
     });
-    playersUnsub = ()=>off(playersRef, "value", unsub);
-  }
+    playersUnsub = unsub;
+}
 
   function renderLeaderboard(playersObj){
     const rows=[];
