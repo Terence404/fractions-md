@@ -615,11 +615,13 @@
       setupHint.textContent = `Roster saved (${roster.length} names).`;
     }catch(e){ console.error(e); setupHint.textContent="Could not save roster."; }
   });
-  btnShowAll.addEventListener("click", ()=>{
+  if(btnShowAll){
+    btnShowAll.addEventListener("click", ()=>{
     const count = Object.keys(lastPlayersCache||{}).length;
     topN.value = String(Math.max(1, count));
     renderLeaderboard(lastPlayersCache);
-  });
+    });
+  }
 
 
   function stopPlayersListener(){ if(playersUnsub){ playersUnsub(); playersUnsub=null; } }
