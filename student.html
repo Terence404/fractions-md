@@ -749,8 +749,10 @@ let completed = 0;
       const wi = parseInt(w,10);
       if(!Number.isFinite(wi) || wi < 0){ btnSubmit.disabled=true; return; }
     }
-
-    btnSubmit.disabled = !(session && session.active);
+    // Enable submit based on coherent input.
+    // If the teacher ends the session, we will block in the submit handler.
+    const isActive = (session && session.active === false) ? false : true;
+    btnSubmit.disabled = !isActive;
   }
 
   function buildKeypad(){
@@ -1017,6 +1019,11 @@ let completed = 0;
 
   btnSubmit.addEventListener("click", async ()=>{
     if(!started || !current) return;
+    if(session && session.active === false){
+      msgEl.className="msg bad";
+      msgEl.textContent="Session ended.";
+      return;
+    }
 
     const qSec = Math.max(0, Math.floor((Date.now() - qStartedAt)/1000));
     const result = checkAnswer(current);
