@@ -71,6 +71,9 @@
     .sidebar,.main{height:auto}
     .stack{height:auto}
   }
+
+  .menuItem:hover{ background:#f3f5ff; }
+
 </style>
 </head>
 <body>
@@ -232,6 +235,36 @@
 };
   const $ = (id)=>document.getElementById(id);
 
+  function downloadCsv(filename, csvText){
+    const blob = new Blob([csvText], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  function csvEscape(s){
+    const str = (s===null || s===undefined) ? "" : String(s);
+    if(/[",\n\r]/.test(str)){
+      return '"' + str.replace(/"/g,'""') + '"';
+    }
+    return str;
+  }
+
+  function toCsv(rows){
+    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
+  }
+
+  function formatMs(ms){
+    const s = Math.round((ms||0)/1000);
+    return String(s);
+  }
+
+
   const authStatus = $("authStatus");
   const rosterTA = $("roster");
   const timeLimit = $("timeLimit");
@@ -253,6 +286,12 @@
   const lbBody = $("lbBody");
   const playersPill = $("playersPill");
   const btnShowAll = $("btnShowAll");
+
+  const btnExport = $("btnExport");
+  const exportMenu = $("exportMenu");
+  const exportLb = $("exportLb");
+  const exportDetailed = $("exportDetailed");
+
   const lbStatus = $("lbStatus");
 
   const btnCollapse = $("btnCollapse");
@@ -612,6 +651,98 @@
       setShowAllLabel();
     }
   });
+
+
+  // ---------- Export dropdown ----------
+  function closeExportMenu(){
+    exportMenu.style.display = "none";
+  }
+  function toggleExportMenu(){
+    exportMenu.style.display = (exportMenu.style.display==="none" || !exportMenu.style.display) ? "block" : "none";
+  }
+
+  btnExport.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    toggleExportMenu();
+  });
+  exportMenu.addEventListener("click", (e)=>e.stopPropagation());
+  document.addEventListener("click", closeExportMenu);
+
+  exportLb.addEventListener("click", ()=>{
+    closeExportMenu();
+    exportLeaderboardCsv();
+  });
+
+  exportDetailed.addEventListener("click", async ()=>{
+    closeExportMenu();
+    await exportDetailedCsv();
+  });
+
+  function exportLeaderboardCsv(){
+    if(!currentSid){ alert("Start a session first."); return; }
+    // Use all players currently known (not just Top N)
+    const rows = [["Name","CurrentScore","BestScore","Answered","Status","LastSeen"]];
+    const entries = Object.values(lastPlayersCache||{}).sort((a,b)=> (b.bestScore||0)-(a.bestScore||0));
+    for(const p of entries){
+      rows.push([
+        p.name||"",
+        p.currentScore||0,
+        p.bestScore||0,
+        p.answered||0,
+        p.status||"",
+        p.lastSeen ? new Date(p.lastSeen).toLocaleString() : ""
+      ]);
+    }
+    const csvText = toCsv(rows);
+    const fn = `leaderboard_${currentSid}.csv`;
+    downloadCsv(fn, csvText);
+  }
+
+  async function exportDetailedCsv(){
+    if(!currentSid){ alert("Start a session first."); return; }
+    lbStatus.textContent = "Exporting detailed report…";
+    try{
+      // Fetch attempts once (no live listener)
+      const snap = await get(ref(db, `sessions/${currentSid}/attempts`));
+      const all = snap.exists() ? snap.val() : {};
+      const rows = [["Name","UID","QIndex","Attempt","Correct","TimeTakenSec","Type","Payload","Whole","Num","Den","ParsedN","ParsedD","At"]];
+      for(const uid in all){
+        const perUser = all[uid] || {};
+        const name = (lastPlayersCache && lastPlayersCache[uid] && lastPlayersCache[uid].name) ? lastPlayersCache[uid].name : "";
+        // perUser is push-key map -> record
+        const recs = Object.values(perUser);
+        recs.sort((a,b)=> (a.at||0)-(b.at||0));
+        for(const r of recs){
+          rows.push([
+            name,
+            uid,
+            r.qIndex ?? "",
+            r.attempt ?? "",
+            r.correct ? "1" : "0",
+            formatMs(r.timeTakenMs||0),
+            r.type || "",
+            r.payload ? JSON.stringify(r.payload) : "",
+            r.submitted?.whole ?? "",
+            r.submitted?.num ?? "",
+            r.submitted?.den ?? "",
+            r.parsed?.n ?? "",
+            r.parsed?.d ?? "",
+            r.at ? new Date(r.at).toLocaleString() : ""
+          ]);
+        }
+      }
+      const csvText = toCsv(rows);
+      const fn = `detailed_${currentSid}.csv`;
+      downloadCsv(fn, csvText);
+    }catch(e){
+      console.error(e);
+      alert("Detailed export failed. If you just enabled this feature, check Firebase rules allow reading sessions/<sid>/attempts.");
+    }finally{
+      lbStatus.textContent = "";
+    }
+  }
+
+
 
   // --- firebase init (compat) ---
   firebase.initializeApp(firebaseConfig);
