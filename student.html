@@ -570,6 +570,22 @@ let completed = 0;
     gain.gain.exponentialRampToValueAtTime(0.12, t0+0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, t0+0.18);
     gain.connect(ctx.destination);
+
+    const o = ctx.createOscillator();
+    o.type = (kind==='wrong') ? 'triangle' : 'sine';
+    if(kind==='wrong'){
+      o.frequency.setValueAtTime(220, t0);
+      o.frequency.exponentialRampToValueAtTime(140, t0+0.18);
+    }else{
+      o.frequency.setValueAtTime(660, t0);
+      o.frequency.setValueAtTime(880, t0+0.07);
+    }
+    o.connect(gain);
+    o.start(t0);
+    o.stop(t0+0.18);
+  }
+
+
   // ---------- Attempt logging (structured; no correct answer stored) ----------
   function getQuestionPayload(q){
     return q && q.payload ? q.payload : null;
@@ -639,22 +655,6 @@ let completed = 0;
     }catch(e){
       console.warn("logAttempt failed", e);
     }
-  }
-
-
-    const o = ctx.createOscillator();
-    o.type = (kind==='wrong') ? 'triangle' : 'sine';
-    if(kind==='wrong'){
-      o.frequency.setValueAtTime(220, t0);
-      o.frequency.exponentialRampToValueAtTime(140, t0+0.18);
-    }else{
-      o.frequency.setValueAtTime(660, t0);
-      o.frequency.setValueAtTime(880, t0+0.07);
-    }
-    o.connect(gain);
-    o.start(t0);
-    o.stop(t0+0.18);
-  }
 
 // ---------- Scoring ----------
   function pointsForCorrect(seconds){
