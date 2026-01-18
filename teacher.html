@@ -72,7 +72,11 @@
     .stack{height:auto}
   }
 
-  .menuItem:hover{ background:#f3f5ff; }
+  .exportWrap{ position:relative; display:inline-flex; }
+  .exportMenu{ display:none; position:absolute; right:0; top:calc(100% + 8px); min-width:260px; background:rgba(15,22,36,0.98); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:8px; box-shadow:0 18px 50px rgba(0,0,0,0.45); z-index:200; }
+  .exportMenu.open{ display:block; }
+  .exportMenu .menuItem{ width:100%; text-align:left; padding:10px 12px; border:0; background:transparent; border-radius:10px; color:#e9f0ff; cursor:pointer; font-size:14px; }
+  .exportMenu .menuItem:hover{ background:rgba(120,160,255,0.18); }
 
 </style>
 </head>
@@ -171,14 +175,14 @@
             <button id="modeCurrent" class="active" type="button">Current</button>
             <button id="modeBest" type="button">Best</button>
           </div>
-          <div style=\"display:flex; gap:10px; align-items:center; flex-wrap:wrap\">
-            <div class=\"pill\" id=\"playersPill\">Players: 0</div>
-            <button class=\"secondary\" id=\"btnShowAll\" type=\"button\">Show all</button>
-            <div class=\\"dropdown\\" style=\\"position:relative\\">
-              <button class=\\"secondary\\" id=\\"btnExport\\" type=\\"button\\">Export ▾</button>
-              <div id=\\"exportMenu\\" class=\\"menu\\" style=\\"position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid #e6e6e6; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.10); padding:6px; min-width:220px; display:none; z-index:50;\\">
-                <button class=\\"menuItem\\" id=\\"exportLb\\" type=\\"button\\" style=\\"width:100%; text-align:left; padding:10px 10px; border:0; background:transparent; border-radius:8px; cursor:pointer;\\">Export leaderboard (CSV)</button>
-                <button class=\\"menuItem\\" id=\\"exportDetailed\\" type=\\"button\\" style=\\"width:100%; text-align:left; padding:10px 10px; border:0; background:transparent; border-radius:8px; cursor:pointer;\\">Export detailed report (CSV)</button>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+            <div class="pill" id="playersPill">Players: 0</div>
+            <button class="secondary" id="btnShowAll" type="button">Show all</button>
+            <div class="exportWrap">
+              <button class="secondary" id="btnExport" type="button">Export ▾</button>
+              <div id="exportMenu" class="exportMenu" aria-hidden="true">
+                <button class="menuItem" id="exportLb" type="button">Export leaderboard (CSV)</button>
+                <button class="menuItem" id="exportDetailed" type="button">Export detailed report (CSV)</button>
               </div>
             </div>
 
@@ -255,21 +259,21 @@
     setTimeout(()=>URL.revokeObjectURL(url), 1000);
   }
 
-  function csvEscape(s){
-    const str = (s===null || s===undefined) ? "" : String(s);
-    if(/[",\n\r]/.test(str)){
-      return '"' + str.replace(/"/g,'""') + '"';
-    }
-    return str;
+  function csvEscape(v){
+    const s = (v===null||v===undefined) ? "" : String(v);
+    return /[",
+
+]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
   }
 
   function toCsv(rows){
-    return rows.map(r=>r.map(csvEscape).join(",")).join("\n");
+    return rows.map(r=>r.map(csvEscape).join(",")).join("
+");
   }
 
-  function formatMs(ms){
-    const s = Math.round((ms||0)/1000);
-    return String(s);
+  function fmtTime(ms){
+    if(!ms) return "";
+    try{ return new Date(ms).toLocaleString(); }catch(_){ return String(ms); }
   }
 
 
@@ -294,12 +298,10 @@
   const lbBody = $("lbBody");
   const playersPill = $("playersPill");
   const btnShowAll = $("btnShowAll");
-
   const btnExport = $("btnExport");
   const exportMenu = $("exportMenu");
   const exportLb = $("exportLb");
   const exportDetailed = $("exportDetailed");
-
   const lbStatus = $("lbStatus");
 
   const btnCollapse = $("btnCollapse");
@@ -650,6 +652,91 @@
 
   if(btnShowAll){
     btnShowAll.addEventListener("click", toggleShowAll);
+
+  // ---------- Export dropdown ----------
+  function closeExportMenu(){ if(exportMenu){ exportMenu.classList.remove('open'); exportMenu.setAttribute('aria-hidden','true'); } }
+  function toggleExportMenu(){
+    if(!exportMenu) return;
+    const isOpen = exportMenu.classList.toggle('open');
+    exportMenu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  }
+
+  if(btnExport){
+    btnExport.addEventListener('click', (e)=>{ e.stopPropagation(); toggleExportMenu(); });
+    document.addEventListener('click', ()=>closeExportMenu());
+  }
+  if(exportMenu){ exportMenu.addEventListener('click', (e)=>e.stopPropagation()); }
+
+  if(exportLb){
+    exportLb.addEventListener('click', ()=>{ closeExportMenu(); exportLeaderboardCsv(); });
+  }
+  if(exportDetailed){
+    exportDetailed.addEventListener('click', async ()=>{ closeExportMenu(); await exportDetailedCsv(); });
+  }
+
+  function exportLeaderboardCsv(){
+    if(!currentSid){ alert('Start a session first.'); return; }
+    const rows = [[
+      'Name','CurrentScore','BestScore','Answered','Status','LastSeen'
+    ]];
+    const entries = Object.entries(lastPlayersCache||{}).map(([uid,p])=>({uid, ...(p||{})}));
+    // Sort by BestScore desc for a stable export
+    entries.sort((a,b)=>(b.bestScore||0)-(a.bestScore||0));
+    for(const p of entries){
+      rows.push([
+        p.name||'',
+        p.currentScore||0,
+        p.bestScore||0,
+        p.answered||0,
+        p.status||'',
+        fmtTime(p.lastSeen)
+      ]);
+    }
+    downloadCsv(`leaderboard_${currentSid}.csv`, toCsv(rows));
+  }
+
+  async function exportDetailedCsv(){
+    if(!currentSid){ alert('Start a session first.'); return; }
+    lbStatus.textContent = 'Exporting detailed report…';
+    try{
+      const snap = await db.ref(`sessions/${currentSid}/attempts`).once('value');
+      const all = snap.val() || {};
+      const rows = [[
+        'Name','UID','QIndex','Attempt','Correct','TimeTakenSec','Type','Payload','Whole','Num','Den','ParsedN','ParsedD','At'
+      ]];
+      for(const uid of Object.keys(all)){
+        const perUser = all[uid] || {};
+        const name = (lastPlayersCache && lastPlayersCache[uid] && lastPlayersCache[uid].name) ? lastPlayersCache[uid].name : '';
+        const recs = listValues(perUser);
+        recs.sort((a,b)=>(a.at||0)-(b.at||0));
+        for(const r of recs){
+          rows.push([
+            name,
+            uid,
+            r.qIndex ?? '',
+            r.attempt ?? '',
+            r.correct ? '1' : '0',
+            Math.round((r.timeTakenMs||0)/1000),
+            r.type || '',
+            r.payload ? JSON.stringify(r.payload) : '',
+            (r.submitted && r.submitted.whole) ? r.submitted.whole : '',
+            (r.submitted && r.submitted.num) ? r.submitted.num : '',
+            (r.submitted && r.submitted.den) ? r.submitted.den : '',
+            (r.parsed && r.parsed.n!=null) ? r.parsed.n : '',
+            (r.parsed && r.parsed.d!=null) ? r.parsed.d : '',
+            fmtTime(r.at)
+          ]);
+        }
+      }
+      downloadCsv(`detailed_${currentSid}.csv`, toCsv(rows));
+    }catch(e){
+      console.error(e);
+      alert('Detailed export failed. Check RTDB rules allow teacher to read sessions/<sid>/attempts.');
+    }finally{
+      lbStatus.textContent = '—';
+    }
+  }
+
   }
 
   // If user manually changes Top N, exit show-all mode
@@ -659,102 +746,6 @@
       setShowAllLabel();
     }
   });
-
-
-  // ---------- Export dropdown ----------
-  function closeExportMenu(){
-    exportMenu.style.display = "none";
-  }
-  function toggleExportMenu(){
-    exportMenu.style.display = (exportMenu.style.display==="none" || !exportMenu.style.display) ? "block" : "none";
-  }
-
-
-  if(btnExport && exportMenu && exportLb && exportDetailed){
-    btnExport.addEventListener("click", (e)=>{
-      e.stopPropagation();
-      toggleExportMenu();
-    });
-    exportMenu.addEventListener("click", (e)=>e.stopPropagation());
-    document.addEventListener("click", closeExportMenu);
-
-    exportLb.addEventListener("click", ()=>{
-      closeExportMenu();
-      exportLeaderboardCsv();
-    });
-
-    exportDetailed.addEventListener("click", async ()=>{
-      closeExportMenu();
-      await exportDetailedCsv();
-    });
-  }
-
-
-  function exportLeaderboardCsv(){
-    if(!currentSid){ alert("Start a session first."); return; }
-    // Use all players currently known (not just Top N)
-    const rows = [["Name","CurrentScore","BestScore","Answered","Status","LastSeen"]];
-    const entries = Object.values(lastPlayersCache||{}).sort((a,b)=> (b.bestScore||0)-(a.bestScore||0));
-    for(const p of entries){
-      rows.push([
-        p.name||"",
-        p.currentScore||0,
-        p.bestScore||0,
-        p.answered||0,
-        p.status||"",
-        p.lastSeen ? new Date(p.lastSeen).toLocaleString() : ""
-      ]);
-    }
-    const csvText = toCsv(rows);
-    const fn = `leaderboard_${currentSid}.csv`;
-    downloadCsv(fn, csvText);
-  }
-
-  async function exportDetailedCsv(){
-    if(!currentSid){ alert("Start a session first."); return; }
-    lbStatus.textContent = "Exporting detailed report…";
-    try{
-      // Fetch attempts once (no live listener)
-      const snap = await get(ref(db, `sessions/${currentSid}/attempts`));
-      const all = snap.exists() ? snap.val() : {};
-      const rows = [["Name","UID","QIndex","Attempt","Correct","TimeTakenSec","Type","Payload","Whole","Num","Den","ParsedN","ParsedD","At"]];
-      for(const uid in all){
-        const perUser = all[uid] || {};
-        const name = (lastPlayersCache && lastPlayersCache[uid] && lastPlayersCache[uid].name) ? lastPlayersCache[uid].name : "";
-        // perUser is push-key map -> record
-        const recs = Object.values(perUser);
-        recs.sort((a,b)=> (a.at||0)-(b.at||0));
-        for(const r of recs){
-          rows.push([
-            name,
-            uid,
-            r.qIndex ?? "",
-            r.attempt ?? "",
-            r.correct ? "1" : "0",
-            formatMs(r.timeTakenMs||0),
-            r.type || "",
-            r.payload ? JSON.stringify(r.payload) : "",
-            r.submitted?.whole ?? "",
-            r.submitted?.num ?? "",
-            r.submitted?.den ?? "",
-            r.parsed?.n ?? "",
-            r.parsed?.d ?? "",
-            r.at ? new Date(r.at).toLocaleString() : ""
-          ]);
-        }
-      }
-      const csvText = toCsv(rows);
-      const fn = `detailed_${currentSid}.csv`;
-      downloadCsv(fn, csvText);
-    }catch(e){
-      console.error(e);
-      alert("Detailed export failed. If you just enabled this feature, check Firebase rules allow reading sessions/<sid>/attempts.");
-    }finally{
-      lbStatus.textContent = "";
-    }
-  }
-
-
 
   // --- firebase init (compat) ---
   firebase.initializeApp(firebaseConfig);
