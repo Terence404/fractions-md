@@ -248,7 +248,8 @@
   const $ = (id)=>document.getElementById(id);
 
   function downloadCsv(filename, csvText){
-    const blob = new Blob([csvText], {type:"text/csv;charset=utf-8"});
+    // Add UTF-8 BOM so Excel opens correctly
+    const blob = new Blob(["\uFEFF" + csvText], {type:"text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -265,7 +266,8 @@
   }
 
   function toCsv(rows){
-    return rows.map(r=>r.map(csvEscape).join(",")).join("\\n");
+    // Use CRLF for best Excel compatibility
+    return rows.map(r=>r.map(csvEscape).join(",")).join("\r\n");
   }
 
   function fmtTime(ms){
@@ -672,27 +674,92 @@
   }
 
   function exportLeaderboardCsv(){
-    if(!currentSid){ alert('Start a session first.'); return; }
-    const rows = [[
-      'Name','CurrentScore','BestScore','Answered','Status','LastSeen'
-    ]];
-    const entries = Object.entries(lastPlayersCache||{}).map(([uid,p])=>({uid, ...(p||{})}));
-    // Sort by BestScore desc for a stable export
-    entries.sort((a,b)=>(b.bestScore||0)-(a.bestScore||0));
-    for(const p of entries){
-      rows.push([
-        p.name||'',
-        p.currentScore||0,
-        p.bestScore||0,
-        p.answered||0,
-        p.status||'',
-        fmtTime(p.lastSeen)
-      ]);
-    }
-    downloadCsv(`leaderboard_${currentSid}.csv`, toCsv(rows));
+    if(!currentSid){ alert("Start a session first."); return; }
+    (async ()=>{
+      try{
+        const snap = await get(ref(db, `sessions/${currentSid}/players`));
+        const players = snap.exists() ? snap.val() : {};
+        const entries = Object.entries(players).map(([uid,p])=>({uid, ...(p||{})}));
+        // Sort by BestScore (descending), then CurrentScore
+        entries.sort((a,b)=> (b.bestScore||0)-(a.bestScore||0) || (b.currentScore||0)-(a.currentScore||0));
+        const rows = [["Name","UID","CurrentScore","BestScore","Answered","Status","LastSeen"]];
+        for(const p of entries){
+          rows.push([
+            p.name||"",
+            p.uid||"",
+            p.currentScore||0,
+            p.bestScore||0,
+            p.answered||0,
+            p.status||"",
+            p.lastSeen ? new Date(p.lastSeen).toLocaleString() : ""
+          ]);
+        }
+        const csvText = toCsv(rows);
+        downloadCsv(`leaderboard_${currentSid}.csv`, csvText);
+      }catch(e){
+        console.error(e);
+        alert("Leaderboard export failed.");
+      }
+    })();
   }
 
   async function exportDetailedCsv(){
+    if(!currentSid){ alert("Start a session first."); return; }
+    lbStatus.textContent = "Exporting detailed report…";
+    try{
+      const [playersSnap, attemptsSnap] = await Promise.all([
+        get(ref(db, `sessions/${currentSid}/players`)),
+        get(ref(db, `sessions/${currentSid}/attempts`))
+      ]);
+      const players = playersSnap.exists() ? playersSnap.val() : {};
+      const all = attemptsSnap.exists() ? attemptsSnap.val() : {};
+
+      const rows = [[
+        "Name","UID","QIndex","Attempt","Correct","TimeTakenSec","Type","Payload",
+        "Whole","Num","Den","ParsedN","ParsedD","At"
+      ]];
+
+      for(const uid in all){
+        const perUser = all[uid] || {};
+        const name = (players[uid] && players[uid].name) ? players[uid].name : "";
+        const recs = Object.values(perUser);
+        recs.sort((a,b)=> (a.at||0)-(b.at||0));
+        for(const r of recs){
+          rows.push([
+            name,
+            uid,
+            (r.qIndex ?? ""),
+            (r.attempt ?? ""),
+            (r.correct ? "1" : "0"),
+            String(Math.round((r.timeTakenMs||0)/1000)),
+            (r.type || ""),
+            (r.payload ? JSON.stringify(r.payload) : ""),
+            (r.submitted && r.submitted.whole != null ? r.submitted.whole : ""),
+            (r.submitted && r.submitted.num != null ? r.submitted.num : ""),
+            (r.submitted && r.submitted.den != null ? r.submitted.den : ""),
+            (r.parsed && r.parsed.n != null ? r.parsed.n : ""),
+            (r.parsed && r.parsed.d != null ? r.parsed.d : ""),
+            (r.at ? new Date(r.at).toLocaleString() : "")
+          ]);
+        }
+      }
+
+      if(rows.length === 1){
+        // No attempts logged
+        rows.push(["","","","","","","","","","","","","",""]);
+      }
+
+      const csvText = toCsv(rows);
+      downloadCsv(`detailed_${currentSid}.csv`, csvText);
+    }catch(e){
+      console.error(e);
+      alert("Detailed export failed. Check Firebase rules allow teacher to read sessions/<sid>/attempts.");
+    }finally{
+      lbStatus.textContent = "";
+    }
+  }
+
+(){
     if(!currentSid){ alert('Start a session first.'); return; }
     lbStatus.textContent = 'Exporting detailed report…';
     try{
