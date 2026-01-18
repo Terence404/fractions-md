@@ -492,7 +492,8 @@ let completed = 0;
       type, expr, ans: reduced,
       answerKind,
       requiresSimplest: true,
-      mustSimplify
+      mustSimplify,
+      payload: payload || null
     };
   }
 
@@ -640,11 +641,11 @@ let completed = 0;
     try{
       const payload = getQuestionPayload(q);
       const rec = {
-        qIndex: qIndex,
+        qIndex: (completed + 1),
         attempt: attemptNo,
         at: Date.now(),
         timeTakenMs: Math.max(0, Math.round(timeTakenMs||0)),
-        type: q ? q.type : null,
+        type: String(q && q.type ? q.type : ""),
         payload: payload,
         submitted: submittedRaw,
         parsed: parsedFrac ? {n: parsedFrac.n, d: parsedFrac.d} : null,
