@@ -229,7 +229,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
-    getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp
+    getDatabase, ref, get, set, update, onValue, onDisconnect, push, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
   // ======= PASTE YOUR FIREBASE CONFIG HERE =======
@@ -301,6 +301,7 @@
   let ticker = null;
 
   let score = 0;
+  let attemptNo = 0; // attempts for current question
   let bestScoreLocal = 0;
 let completed = 0;
   let correct = 0;
@@ -422,7 +423,7 @@ let completed = 0;
         if(!mustSimplify && needsSimplify_mul(A,B)) continue;
         if(!capAnswer(ans)) continue;
         expr = {a:A, op:"×", b:B};
-        return pack(type, expr, ans, mustSimplify, false);
+        return pack(type, expr, ans, mustSimplify, false, {kind:'FxF', a:A, b:B});
       }
       if(type==="WxF"){
         W = randInt(4,18);
@@ -435,7 +436,7 @@ let completed = 0;
         if(!mustSimplify && needsSimplify_intMul(W,B)) continue;
         if(!capAnswer(ans)) continue;
         expr = {a:fracFromInt(W), op:"×", b:B};
-        return pack(type, expr, ans, mustSimplify, mixed);
+        return pack(type, expr, ans, mustSimplify, mixed, {kind:'WxF', w:W, f:B});
       }
       if(type==="FdivW"){
         A=makeProperFrac();
@@ -446,7 +447,7 @@ let completed = 0;
         if(!mustSimplify && needsSimplify_fDivW(A,W)) continue;
         if(!capAnswer(ans)) continue;
         expr = {a:A, op:"÷", b:fracFromInt(W)};
-        return pack(type, expr, ans, mustSimplify, false);
+        return pack(type, expr, ans, mustSimplify, false, {kind:'FdivW', f:A, w:W});
       }
       if(type==="FdivF"){
         A=makeProperFrac(); B=makeProperFrac();
@@ -458,7 +459,7 @@ let completed = 0;
         if(!mustSimplify && needsSimplify_fDivF(A,B)) continue;
         if(!capAnswer(ans)) continue;
         expr = {a:A, op:"÷", b:B};
-        return pack(type, expr, ans, mustSimplify, mixed);
+        return pack(type, expr, ans, mustSimplify, mixed, {kind:'FdivF', a:A, b:B});
       }
       if(type==="WdivF"){
         W=randInt(4,18);
@@ -471,13 +472,13 @@ let completed = 0;
         if(!mustSimplify && needsSimplify_wDivF(W,B)) continue;
         if(!capAnswer(ans)) continue;
         expr = {a:fracFromInt(W), op:"÷", b:B};
-        return pack(type, expr, ans, mustSimplify, mixed);
+        return pack(type, expr, ans, mustSimplify, mixed, {kind:'WdivF', w:W, f:B});
       }
     }
     throw new Error("Generation failed for "+type);
   }
 
-  function pack(type, expr, ans, mustSimplify, isMixed){
+  function pack(type, expr, ans, mustSimplify, isMixed, payload){
     const reduced = reduce(ans.n, ans.d);
     let answerKind = "frac";
     if(reduced.d===1) answerKind = "whole";
@@ -569,6 +570,77 @@ let completed = 0;
     gain.gain.exponentialRampToValueAtTime(0.12, t0+0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, t0+0.18);
     gain.connect(ctx.destination);
+  // ---------- Attempt logging (structured; no correct answer stored) ----------
+  function getQuestionPayload(q){
+    return q && q.payload ? q.payload : null;
+  }
+
+  function getSubmittedRaw(){
+    return {
+      whole: (inpWhole.value||"").trim(),
+      num: (inpNum.value||"").trim(),
+      den: (inpDen.value||"").trim()
+    };
+  }
+
+  function parseSubmittedToFrac(){
+    const raw = getSubmittedRaw();
+    const w = raw.whole;
+    const n = raw.num;
+    const d = raw.den;
+
+    const hasW = w !== "";
+    const hasN = n !== "";
+    const hasD = d !== "";
+
+    const wi = hasW ? parseInt(w,10) : null;
+    const ni = hasN ? parseInt(n,10) : null;
+    const di = hasD ? parseInt(d,10) : null;
+
+    // whole only
+    if(hasW && !hasN && !hasD && Number.isFinite(wi) && wi>=0){
+      return { n: wi, d: 1 };
+    }
+
+    // fraction only (no whole)
+    if(!hasW && hasN && hasD && Number.isFinite(ni) && Number.isFinite(di) && di!==0){
+      return reduce(ni, di);
+    }
+
+    // mixed
+    if(hasW && hasN && hasD && Number.isFinite(wi) && Number.isFinite(ni) && Number.isFinite(di) && di!==0){
+      const sign = (wi<0) ? -1 : 1;
+      const absW = Math.abs(wi);
+      const frac = reduce(ni, di);
+      const nn = sign * (absW*frac.d + frac.n);
+      return reduce(nn, frac.d);
+    }
+
+    return null;
+  }
+
+  async function logAttemptToDb(q, submittedRaw, parsedFrac, isCorrect, timeTakenMs){
+    if(!sid || !uid) return;
+    try{
+      const payload = getQuestionPayload(q);
+      const rec = {
+        qIndex: qIndex,
+        attempt: attemptNo,
+        at: Date.now(),
+        timeTakenMs: Math.max(0, Math.round(timeTakenMs||0)),
+        type: q ? q.type : null,
+        payload: payload,
+        submitted: submittedRaw,
+        parsed: parsedFrac ? {n: parsedFrac.n, d: parsedFrac.d} : null,
+        correct: !!isCorrect
+      };
+      const base = ref(db, `sessions/${sid}/attempts/${uid}`);
+      await set(push(base), rec);
+    }catch(e){
+      console.warn("logAttempt failed", e);
+    }
+  }
+
 
     const o = ctx.createOscillator();
     o.type = (kind==='wrong') ? 'triangle' : 'sine';
@@ -927,6 +999,7 @@ let completed = 0;
   }
 
   function nextQuestion(){
+    attemptNo = 0;
     if(completed>=10){
       endRound("finished");
       return;
@@ -947,6 +1020,14 @@ let completed = 0;
 
     const qSec = Math.max(0, Math.floor((Date.now() - qStartedAt)/1000));
     const result = checkAnswer(current);
+
+    attemptNo += 1;
+    const submittedRaw = getSubmittedRaw();
+    const parsedFrac = parseSubmittedToFrac();
+    const timeTakenMs = (Date.now() - qStartedAt);
+
+    // log every submission (right or wrong)
+    logAttemptToDb(current, submittedRaw, parsedFrac, result.ok, timeTakenMs);
 
     if(result.ok){
       const pts = pointsForCorrect(qSec);
