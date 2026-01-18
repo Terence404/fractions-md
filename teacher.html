@@ -261,14 +261,11 @@
 
   function csvEscape(v){
     const s = (v===null||v===undefined) ? "" : String(v);
-    return /[",
-
-]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    return /[",\\n\\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
   }
 
   function toCsv(rows){
-    return rows.map(r=>r.map(csvEscape).join(",")).join("
-");
+    return rows.map(r=>r.map(csvEscape).join(",")).join("\\n");
   }
 
   function fmtTime(ms){
