@@ -593,9 +593,9 @@ let completed = 0;
 
   function getSubmittedRaw(){
     return {
-      whole: (inpWhole.value||"").trim(),
-      num: (inpNum.value||"").trim(),
-      den: (inpDen.value||"").trim()
+      whole: boxValue("whole"),
+      num: boxValue("num"),
+      den: boxValue("den")
     };
   }
 
